@@ -1,5 +1,6 @@
 "use client";
 import { GoogleMap, useJsApiLoader, Marker } from '@react-google-maps/api';
+import { IconBuildingSkyscraper } from "@tabler/icons-react";
 
 const containerStyle = {
   width: '100%',
@@ -27,14 +28,24 @@ const comicMapStyle = [
   { featureType: 'water', elementType: 'geometry.fill', stylers: [{ color: '#b9d3c2' }] },
 ];
 
-// SVG for building marker
+// Material Design 'Location City' icon as SVG data URL
+const buildingSvg = encodeURIComponent(`
+  <svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <g>
+      <rect x="12" y="24" width="40" height="28" rx="4" fill="#E5E7EB" stroke="#A3A3A3" stroke-width="2"/>
+      <rect x="20" y="32" width="8" height="12" rx="1" fill="#B0B6BE"/>
+      <rect x="36" y="32" width="8" height="12" rx="1" fill="#B0B6BE"/>
+      <rect x="28" y="40" width="8" height="12" rx="1" fill="#D1D5DB"/>
+      <rect x="24" y="16" width="16" height="16" rx="2" fill="#F3F4F6" stroke="#A3A3A3" stroke-width="2"/>
+      <rect x="28" y="20" width="8" height="8" rx="1" fill="#B0B6BE"/>
+      <rect x="30" y="44" width="4" height="8" rx="1" fill="#9CA3AF"/>
+    </g>
+  </svg>
+`);
 const buildingIcon = {
-  path: "M4 20V8a2 2 0 0 1 2-2h2V4a2 2 0 0 1 2-2h0a2 2 0 0 1 2 2v2h2a2 2 0 0 1 2 2v12M9 20v-4h6v4",
-  fillColor: "#6E41F4",
-  fillOpacity: 1,
-  strokeWeight: 1,
-  scale: 1.5,
-  strokeColor: "#232946",
+  url: `data:image/svg+xml,${buildingSvg}`,
+  scaledSize: { width: 48, height: 48 },
+  anchor: { x: 24, y: 48 },
 };
 
 export default function Map() {
