@@ -84,22 +84,8 @@ export function MetricCard({
         </div>
 
         {/* Progress Bar - Enhanced */}
-        {type === 'time' && (
-          <div className="w-full bg-gray-200 rounded-full h-1.5 mb-1">
-            <motion.div
-              className="bg-orange-500 h-1.5 rounded-full"
-              initial={{ width: 0 }}
-              animate={{ width: `${Math.min((numericValue / 100) * 100, 100)}%` }}
-              transition={{ duration: 1, delay: 0.6 }}
-            />
-          </div>
-        )}
-        {type === 'time' && (
-          <div className="text-sm text-gray-600">
-            {Math.round((numericValue / 100) * 100)}% of goal
-          </div>
-        )}
-
+        {/* Removed progress bar and goal percentage for 'time' type as requested */}
+        
         {/* Drill-in Affordance - Right Aligned */}
         <motion.button
           className="absolute bottom-3 right-3 p-2 rounded-lg bg-gray-100 hover:bg-gray-200 transition-colors opacity-0 group-hover:opacity-100"

@@ -31,18 +31,17 @@ export default function MetricCardRow({ ticketsOpen = 0, ticketsClosed = 0, tick
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.6, ease: "easeOut" }}
     >
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
-        {/* Ticket Pie Chart - Takes up 1/3 on large screens */}
-        <div className="lg:col-span-1">
+      <div className="flex flex-col lg:flex-row gap-6 items-stretch w-full">
+        {/* Ticket Pie Chart - Left */}
+        <div className="w-full lg:w-1/3 flex items-stretch">
           <TicketPieChart 
             ticketsOpen={ticketsOpen}
             ticketsClosed={ticketsClosed}
             ticketsSolved={ticketsSolved}
           />
         </div>
-        
-        {/* Metric Cards - Take up 2/3 on large screens */}
-        <div className="lg:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
+        {/* Metric Cards - Right */}
+        <div className="w-full lg:w-2/3 grid grid-cols-1 sm:grid-cols-2 gap-4 items-stretch">
           {getMetrics(timeSaved, tenants).map((m) => (
             <MetricCard key={m.label} {...m} />
           ))}

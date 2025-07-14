@@ -39,13 +39,13 @@ export function TicketPieChart({ ticketsOpen = 0, ticketsClosed = 0, ticketsSolv
   };
 
   return (
-    <Card className="bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md transition-all duration-300 p-6 h-32 flex flex-row items-center gap-4">
+    <Card className="bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md transition-all duration-300 h-32 flex flex-row items-center gap-4 w-full p-0">
       {/* Service Ticket Icon with orange-100 background */}
-      <div className="flex items-center justify-center w-12 h-12 rounded-lg bg-orange-100 border border-orange-200 mr-2 flex-shrink-0">
+      <div className="flex items-center justify-center w-12 h-12 rounded-lg bg-orange-100 border border-orange-200 mr-2 flex-shrink-0 ml-6">
         <FileText className="w-7 h-7 text-orange-500" />
       </div>
       {/* Mini KPI Cards with dividers and hover states */}
-      <div className="flex flex-row w-full h-full">
+      <div className="flex flex-row w-full h-full pr-6">
         {ticketCategories.map((cat, idx) => (
           <div
             key={cat.key}
