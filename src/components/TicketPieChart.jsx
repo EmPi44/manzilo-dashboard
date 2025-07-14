@@ -40,12 +40,15 @@ export function TicketPieChart({ ticketsOpen = 0, ticketsClosed = 0, ticketsSolv
 
   return (
     <Card className="relative overflow-hidden bg-white border border-gray-100 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 p-3 min-h-[5.5rem] h-full flex flex-row items-center group cursor-pointer">
-      {/* Icon on the left, smaller size */}
-      <div className="flex items-center justify-center w-9 min-w-[2.25rem] h-9 rounded-md bg-orange-100 border border-orange-200 mr-4">
-        <FileText className="w-5 h-5 text-orange-500" />
+      {/* Icon and label in a vertical stack, centered vertically */}
+      <div className="flex flex-col items-center justify-center w-16 mr-4">
+        <div className="w-12 h-12 rounded-lg bg-white border border-gray-100 flex items-center justify-center shadow-sm mb-1">
+          <FileText className="h-6 w-6 text-indigo-500" strokeWidth={2} />
+        </div>
+        <span className="text-xs font-medium text-gray-500">Tickets</span>
       </div>
       {/* Ticket KPIs horizontally aligned, flex-1, centered */}
-      <div className="flex flex-row flex-1 items-center justify-between h-full">
+      <div className="flex flex-row flex-1 items-center justify-between h-full w-full">
         {ticketCategories.map((cat, idx) => (
           <div
             key={cat.key}
