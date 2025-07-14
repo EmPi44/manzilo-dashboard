@@ -15,18 +15,26 @@ const center = {
   lng: 55.2708,
 };
 
-// Comic/cartoon style map (Snazzy Maps or similar)
-const comicMapStyle = [
-  { elementType: 'geometry', stylers: [{ color: '#ebe3cd' }] },
-  { elementType: 'labels.text.fill', stylers: [{ color: '#523735' }] },
-  { elementType: 'labels.text.stroke', stylers: [{ color: '#f5f1e6' }] },
-  { featureType: 'administrative', elementType: 'geometry.stroke', stylers: [{ color: '#c9b2a6' }] },
-  { featureType: 'poi', elementType: 'geometry', stylers: [{ color: '#dfd2ae' }] },
-  { featureType: 'poi.park', elementType: 'geometry.fill', stylers: [{ color: '#a5b076' }] },
-  { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#f5f1e6' }] },
-  { featureType: 'road.arterial', elementType: 'geometry', stylers: [{ color: '#fdfcf8' }] },
-  { featureType: 'road.highway', elementType: 'geometry', stylers: [{ color: '#f8c967' }] },
-  { featureType: 'water', elementType: 'geometry.fill', stylers: [{ color: '#b9d3c2' }] },
+// Light Dream style from Snazzy Maps
+const lightDreamMapStyle = [
+  { "elementType": "geometry", "stylers": [{ "color": "#f5f5f5" }] },
+  { "elementType": "labels.icon", "stylers": [{ "visibility": "off" }] },
+  { "elementType": "labels.text.fill", "stylers": [{ "color": "#616161" }] },
+  { "elementType": "labels.text.stroke", "stylers": [{ "color": "#f5f5f5" }] },
+  { "featureType": "administrative.land_parcel", "elementType": "labels.text.fill", "stylers": [{ "color": "#bdbdbd" }] },
+  { "featureType": "poi", "elementType": "geometry", "stylers": [{ "color": "#eeeeee" }] },
+  { "featureType": "poi", "elementType": "labels.text.fill", "stylers": [{ "color": "#757575" }] },
+  { "featureType": "poi.park", "elementType": "geometry", "stylers": [{ "color": "#e5e5e5" }] },
+  { "featureType": "poi.park", "elementType": "labels.text.fill", "stylers": [{ "color": "#9e9e9e" }] },
+  { "featureType": "road", "elementType": "geometry", "stylers": [{ "color": "#ffffff" }] },
+  { "featureType": "road.arterial", "elementType": "labels.text.fill", "stylers": [{ "color": "#757575" }] },
+  { "featureType": "road.highway", "elementType": "geometry", "stylers": [{ "color": "#dadada" }] },
+  { "featureType": "road.highway", "elementType": "labels.text.fill", "stylers": [{ "color": "#616161" }] },
+  { "featureType": "road.local", "elementType": "labels.text.fill", "stylers": [{ "color": "#9e9e9e" }] },
+  { "featureType": "transit.line", "elementType": "geometry", "stylers": [{ "color": "#e5e5e5" }] },
+  { "featureType": "transit.station", "elementType": "geometry", "stylers": [{ "color": "#eeeeee" }] },
+  { "featureType": "water", "elementType": "geometry", "stylers": [{ "color": "#c9c9c9" }] },
+  { "featureType": "water", "elementType": "labels.text.fill", "stylers": [{ "color": "#9e9e9e" }] }
 ];
 
 // Material Design 'Location City' icon as SVG data URL
@@ -86,7 +94,7 @@ export default function Map({ buildings = [] }) {
       center={center}
       zoom={12}
       options={{
-        styles: comicMapStyle,
+        // Remove styles for standard view
         disableDefaultUI: false,
         zoomControl: true,
         streetViewControl: false,

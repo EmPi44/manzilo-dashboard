@@ -198,15 +198,6 @@ export default function Home() {
                 </ul>
               )}
             </div>
-            {/* Selected badges */}
-            <div className="flex gap-2 mt-6">
-              {selectedCommunityNames.map((name) => (
-                <span key={name} className="inline-flex items-center px-3 py-1 rounded-full bg-indigo-100 text-indigo-700 text-xs font-semibold shadow-sm">{name}</span>
-              ))}
-              {selectedBuildingNames.map((name) => (
-                <span key={name} className="inline-flex items-center px-3 py-1 rounded-full bg-gray-200 text-gray-700 text-xs font-semibold shadow-sm">{name}</span>
-              ))}
-            </div>
           </div>
 
           {/* Metrics */}
