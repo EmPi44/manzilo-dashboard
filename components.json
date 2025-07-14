@@ -1,0 +1,9 @@
+{
+  "components": [],
+  "rsc": false,
+  "typescript": false,
+  "aliases": {
+    "@/components": "./src/components",
+    "@/lib": "./src/lib"
+  }
+} 
