@@ -53,38 +53,37 @@ function getMetrics(buildings: Building[]): Metric[] {
 }
 
 export default function Home() {
-  const [selectedCommunity, setSelectedCommunity] = useState<string>("all");
-  const [selectedBuilding, setSelectedBuilding] = useState<string>("all");
+  const [selectedCommunity, setSelectedCommunity] = useState<string[]>(["all"]);
+  const [selectedBuilding, setSelectedBuilding] = useState<string[]>(["all"]);
   const [buildingDropdownOpen, setBuildingDropdownOpen] = useState(false);
 
   // Get filtered buildings
   let filteredBuildings: Building[] = [];
-  if (selectedCommunity === "all") {
+  if (selectedCommunity.includes("all")) {
     filteredBuildings = communities.flatMap((c) => c.buildings);
   } else {
-    const comm = communities.find((c) => c.id === selectedCommunity);
-    if (comm) {
-      filteredBuildings = comm.buildings;
-    }
+    filteredBuildings = communities
+      .filter((c) => selectedCommunity.includes(c.id))
+      .flatMap((c) => c.buildings);
   }
-  if (selectedBuilding !== "all") {
-    filteredBuildings = filteredBuildings.filter((b) => b.id === selectedBuilding);
+  if (!selectedBuilding.includes("all")) {
+    filteredBuildings = filteredBuildings.filter((b) => selectedBuilding.includes(b.id));
   }
 
   const metrics = getMetrics(filteredBuildings);
 
   // Get building options for selected community
-  const buildingOptions: Building[] = selectedCommunity === "all"
+  const buildingOptions: Building[] = selectedCommunity.includes("all")
     ? communities.flatMap((c) => c.buildings)
-    : (communities.find((c) => c.id === selectedCommunity)?.buildings || []);
+    : communities.filter((c) => selectedCommunity.includes(c.id)).flatMap((c) => c.buildings);
 
   // Get selected names for badges
-  const selectedCommunityName = selectedCommunity === "all"
-    ? "All Communities"
-    : communities.find((c) => c.id === selectedCommunity)?.name || "";
-  const selectedBuildingName = selectedBuilding === "all"
-    ? "All Buildings"
-    : buildingOptions.find((b) => b.id === selectedBuilding)?.name || "";
+  const selectedCommunityNames = selectedCommunity.includes("all")
+    ? ["All Communities"]
+    : communities.filter((c) => selectedCommunity.includes(c.id)).map((c) => c.name);
+  const selectedBuildingNames = selectedBuilding.includes("all")
+    ? ["All Buildings"]
+    : buildingOptions.filter((b) => selectedBuilding.includes(b.id)).map((b) => b.name);
 
   return (
     <div className="min-h-screen w-full flex items-center justify-center bg-gradient-to-br from-[#232946] via-[#3a3f5a] to-[#1a1a2e] p-4 sm:p-8 lg:p-12">
@@ -93,15 +92,20 @@ export default function Home() {
         <main className="flex-1 p-4 sm:p-8 overflow-auto">
           {/* Filter UI - Modern, wow-effect */}
           <div className="flex flex-wrap gap-4 mb-8 items-end">
-            {/* Community segmented control */}
+            {/* Community segmented control - multi-select */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Community</label>
               <div className="flex rounded-full bg-gray-100 p-1 shadow-inner">
                 <button
-                  className={`px-5 py-2 rounded-full transition-all font-semibold text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 ${selectedCommunity === "all" ? "bg-indigo-500 text-white shadow-lg scale-105" : "text-gray-700 hover:bg-gray-200"}`}
+                  className={`px-4 py-2 rounded-full transition-all font-semibold text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 border-2 ${selectedCommunity.includes("all") ? "bg-indigo-500 text-white border-indigo-400 shadow" : "text-gray-700 hover:bg-gray-200 border-transparent"}`}
+                  style={{ boxShadow: selectedCommunity.includes("all") ? "0 2px 8px 0 rgba(99,102,241,0.10)" : undefined }}
                   onClick={() => {
-                    setSelectedCommunity("all");
-                    setSelectedBuilding("all");
+                    if (selectedCommunity.includes("all")) {
+                      setSelectedCommunity([]);
+                    } else {
+                      setSelectedCommunity(["all"]);
+                    }
+                    setSelectedBuilding(["all"]);
                   }}
                 >
                   All
@@ -109,10 +113,19 @@ export default function Home() {
                 {communities.map((c) => (
                   <button
                     key={c.id}
-                    className={`px-5 py-2 rounded-full transition-all font-semibold text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 ${selectedCommunity === c.id ? "bg-indigo-500 text-white shadow-lg scale-105" : "text-gray-700 hover:bg-gray-200"}`}
+                    className={`px-4 py-2 rounded-full transition-all font-semibold text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 border-2 ${selectedCommunity.includes(c.id) ? "bg-indigo-500 text-white border-indigo-400 shadow" : "text-gray-700 hover:bg-gray-200 border-transparent"}`}
+                    style={{ boxShadow: selectedCommunity.includes(c.id) ? "0 2px 8px 0 rgba(99,102,241,0.10)" : undefined }}
                     onClick={() => {
-                      setSelectedCommunity(c.id);
-                      setSelectedBuilding("all");
+                      let newSelected = [...selectedCommunity];
+                      if (newSelected.includes("all")) newSelected = [];
+                      if (newSelected.includes(c.id)) {
+                        newSelected = newSelected.filter((id) => id !== c.id);
+                      } else {
+                        newSelected.push(c.id);
+                      }
+                      if (newSelected.length === 0) newSelected = ["all"];
+                      setSelectedCommunity(newSelected);
+                      setSelectedBuilding(["all"]);
                     }}
                   >
                     {c.name}
@@ -120,11 +133,11 @@ export default function Home() {
                 ))}
               </div>
             </div>
-            {/* Building custom dropdown */}
+            {/* Building custom dropdown - multi-select, modern design */}
             <div className="relative min-w-[200px]">
               <label className="block text-sm font-medium text-gray-700 mb-1">Building</label>
               <button
-                className="w-full flex items-center justify-between px-4 py-2 bg-white rounded-lg border border-gray-300 shadow transition-all focus:outline-none focus:ring-2 focus:ring-indigo-400 hover:shadow-md"
+                className="w-full flex items-center justify-between px-5 py-2 bg-white rounded-full border border-gray-200 shadow-sm transition-all focus:outline-none focus:ring-2 focus:ring-indigo-400 hover:shadow-md text-base font-semibold text-gray-900"
                 onClick={() => setBuildingDropdownOpen((open) => !open)}
                 type="button"
                 aria-haspopup="listbox"
@@ -132,40 +145,52 @@ export default function Home() {
               >
                 <span className="flex items-center gap-2">
                   <IconBuildingSkyscraper className="w-5 h-5 text-indigo-500" />
-                  <span className="font-medium text-gray-900">{selectedBuildingName}</span>
+                  <span className="font-medium text-gray-900">{selectedBuildingNames.join(", ")}</span>
                 </span>
                 <svg className={`w-4 h-4 ml-2 transition-transform ${buildingDropdownOpen ? "rotate-180" : "rotate-0"}`} fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M19 9l-7 7-7-7" /></svg>
               </button>
               {buildingDropdownOpen && (
                 <ul
-                  className="absolute z-10 mt-2 w-full bg-white rounded-lg shadow-lg border border-gray-200 py-1 max-h-60 overflow-auto animate-fade-in"
+                  className="absolute z-20 mt-2 w-full bg-white rounded-xl shadow-lg border border-gray-200 py-1 max-h-60 overflow-auto animate-fade-in"
                   tabIndex={-1}
                   role="listbox"
                   onBlur={() => setBuildingDropdownOpen(false)}
                 >
                   <li
-                    className={`flex items-center gap-2 px-4 py-2 cursor-pointer rounded transition-all ${selectedBuilding === "all" ? "bg-indigo-100 text-indigo-700" : "hover:bg-gray-100"}`}
+                    className={`flex items-center gap-2 px-5 py-2 cursor-pointer rounded-full transition-all text-base font-semibold ${selectedBuilding.includes("all") ? "bg-indigo-100 text-indigo-700" : "hover:bg-gray-100"}`}
                     onClick={() => {
-                      setSelectedBuilding("all");
-                      setBuildingDropdownOpen(false);
+                      if (selectedBuilding.includes("all")) {
+                        setSelectedBuilding([]);
+                      } else {
+                        setSelectedBuilding(["all"]);
+                      }
                     }}
                     role="option"
-                    aria-selected={selectedBuilding === "all"}
+                    aria-selected={selectedBuilding.includes("all")}
                   >
+                    <input type="checkbox" checked={selectedBuilding.includes("all")}/>
                     <IconBuildingSkyscraper className="w-5 h-5 text-indigo-400" />
                     All Buildings
                   </li>
                   {buildingOptions.map((b) => (
                     <li
                       key={b.id}
-                      className={`flex items-center gap-2 px-4 py-2 cursor-pointer rounded transition-all ${selectedBuilding === b.id ? "bg-indigo-100 text-indigo-700" : "hover:bg-gray-100"}`}
+                      className={`flex items-center gap-2 px-5 py-2 cursor-pointer rounded-full transition-all text-base font-semibold ${selectedBuilding.includes(b.id) ? "bg-indigo-100 text-indigo-700" : "hover:bg-gray-100"}`}
                       onClick={() => {
-                        setSelectedBuilding(b.id);
-                        setBuildingDropdownOpen(false);
+                        let newSelected = [...selectedBuilding];
+                        if (newSelected.includes("all")) newSelected = [];
+                        if (newSelected.includes(b.id)) {
+                          newSelected = newSelected.filter((id) => id !== b.id);
+                        } else {
+                          newSelected.push(b.id);
+                        }
+                        if (newSelected.length === 0) newSelected = ["all"];
+                        setSelectedBuilding(newSelected);
                       }}
                       role="option"
-                      aria-selected={selectedBuilding === b.id}
+                      aria-selected={selectedBuilding.includes(b.id)}
                     >
+                      <input type="checkbox" checked={selectedBuilding.includes(b.id)}/>
                       <IconBuildingSkyscraper className="w-5 h-5 text-indigo-400" />
                       {b.name}
                     </li>
@@ -175,8 +200,12 @@ export default function Home() {
             </div>
             {/* Selected badges */}
             <div className="flex gap-2 mt-6">
-              <span className="inline-flex items-center px-3 py-1 rounded-full bg-indigo-100 text-indigo-700 text-xs font-semibold shadow-sm">{selectedCommunityName}</span>
-              <span className="inline-flex items-center px-3 py-1 rounded-full bg-gray-200 text-gray-700 text-xs font-semibold shadow-sm">{selectedBuildingName}</span>
+              {selectedCommunityNames.map((name) => (
+                <span key={name} className="inline-flex items-center px-3 py-1 rounded-full bg-indigo-100 text-indigo-700 text-xs font-semibold shadow-sm">{name}</span>
+              ))}
+              {selectedBuildingNames.map((name) => (
+                <span key={name} className="inline-flex items-center px-3 py-1 rounded-full bg-gray-200 text-gray-700 text-xs font-semibold shadow-sm">{name}</span>
+              ))}
             </div>
           </div>
 
