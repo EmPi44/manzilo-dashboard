@@ -63,72 +63,42 @@ const dmList = [
 export default function Sidebar() {
   const activeNav = "Dashboard";
   return (
-    <aside className="w-[260px] flex flex-col h-screen bg-white px-6 py-8" style={{paddingLeft:24, paddingRight:24}}>
+    <aside className="w-[200px] flex flex-col h-screen bg-white px-4 py-6">
       {/* Header/Brand */}
-      <div className="flex items-center gap-2 mb-8">
+      <div className="flex items-center gap-2 mb-6">
         <KeyLogo />
-        <span className="text-[16px] font-semibold text-[#111827]">Master Key</span>
+        <span className="text-[14px] font-semibold text-[#111827]">Master Key</span>
       </div>
       {/* Nav */}
-      <nav className="flex flex-col gap-1 mb-5">
+      <nav className="flex flex-col gap-1 mb-2">
         {navItems.map((label) => {
           const isActive = label === activeNav;
           return (
             <button
               key={label}
-              className={`flex items-center gap-2.5 rounded-lg relative transition text-[16px] font-medium ${
+              className={`flex items-center gap-2 rounded-md relative transition text-[14px] font-medium ${
                 isActive
                   ? "bg-[#F5F7FA] text-[#111827]"
                   : "hover:bg-[#F9FAFB] text-[#111827]"
               }`}
-              style={{ fontWeight: 500, padding: '16px 24px' }}
+              style={{ fontWeight: 500, padding: '10px 14px' }}
             >
               {/* Active bar */}
               {isActive && (
-                <span className="absolute left-0 top-0 h-full w-1 rounded-r bg-[#6E41F4]" style={{width:4}} />
+                <span className="absolute left-0 top-0 h-full w-1 rounded-r bg-[#6E41F4]" style={{width:3}} />
               )}
-              <span className="flex items-center" style={{ minWidth: 24, minHeight: 24 }}>
+              <span className="flex items-center" style={{ minWidth: 18, minHeight: 18 }}>
                 {navIcons[label]}
               </span>
-              <span className="ml-2" style={{fontSize:16}}>{label}</span>
+              <span className="ml-2" style={{fontSize:14}}>{label}</span>
             </button>
           );
         })}
       </nav>
-      {/* Search */}
-      <div className="mb-5 relative">
-        <span className="absolute left-3 top-1/2 -translate-y-1/2">
-          <svg width="16" height="16" fill="none" stroke="#9CA3AF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="7" cy="7" r="5"/><path d="M11 11l4 4"/></svg>
-        </span>
-        <input
-          className="w-full h-10 rounded-lg bg-[#F5F7FA] pl-10 pr-3 text-[14px] text-[#9CA3AF] placeholder-[#9CA3AF] border-none focus:ring-2 focus:ring-[#E5E7EB] shadow-inner"
-          placeholder="Search dialogs"
-          style={{fontWeight:400}}
-        />
-      </div>
-      {/* DM List */}
-      <div className="flex-1 overflow-y-auto mb-5 flex flex-col gap-1 scrollbar-thin scrollbar-thumb-[#E5E7EB] scrollbar-track-transparent">
-        {dmList.map((dm) => (
-          <div key={dm.name} className="flex items-center h-12 gap-3 py-2 px-2 rounded-lg hover:bg-[#F5F7FA] cursor-pointer relative">
-            <span className="relative inline-block w-8 h-8">
-              <span className="w-8 h-8 rounded-full bg-[#E9E3FF] flex items-center justify-center font-semibold text-[#6E41F4] text-[14px]" style={{ fontWeight: 600 }}>
-                {dm.name[0]}
-              </span>
-              {dm.unread && (
-                <span className="absolute top-0 right-0 w-2 h-2 bg-[#22C55E] rounded-full border-2 border-white" style={{width:8, height:8}} />
-              )}
-            </span>
-            <div className="flex-1 min-w-0">
-              <div className="text-[14px] font-semibold text-[#374151] truncate">{dm.name}</div>
-              <div className="text-[12px] font-normal text-[#6B7280] truncate">{dm.message}</div>
-            </div>
-          </div>
-        ))}
-      </div>
       {/* CTA Button */}
-      <button className="mt-auto w-full h-12 bg-[#6E41F4] text-white rounded-xl flex items-center justify-center gap-2 text-[16px] font-semibold shadow-none hover:bg-[#5a3fdc] transition" style={{borderRadius:12}}>
+      <button className="mt-auto w-full h-10 bg-[#6E41F4] text-white rounded-lg flex items-center justify-center gap-2 text-[14px] font-semibold shadow-none hover:bg-[#5a3fdc] transition" style={{borderRadius:10}}>
         {/* Brand icon */}
-        <svg width="20" height="20" viewBox="0 0 32 32" fill="none" stroke="#fff" strokeWidth="2"><circle cx="16" cy="16" r="12" stroke="#fff" strokeWidth="2" fill="#6E41F4" /><rect x="20" y="13" width="6" height="2" rx="1" fill="#fff" /><circle cx="16" cy="16" r="4" stroke="#fff" strokeWidth="2" fill="#6E41F4" /><rect x="14" y="10" width="4" height="8" rx="2" fill="#fff" /></svg>
+        <svg width="16" height="16" viewBox="0 0 32 32" fill="none" stroke="#fff" strokeWidth="2"><circle cx="16" cy="16" r="12" stroke="#fff" strokeWidth="2" fill="#6E41F4" /><rect x="20" y="13" width="6" height="2" rx="1" fill="#fff" /><circle cx="16" cy="16" r="4" stroke="#fff" strokeWidth="2" fill="#6E41F4" /><rect x="14" y="10" width="4" height="8" rx="2" fill="#fff" /></svg>
         Broadcast
       </button>
     </aside>
