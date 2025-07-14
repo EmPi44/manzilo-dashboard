@@ -1,130 +1,70 @@
-import { motion } from "framer-motion";
-import { useState } from "react";
 import { Card } from "./ui/card";
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
-import { Download } from "lucide-react";
+import { FileText, CheckCircle, PieChart as PieIcon } from "lucide-react";
 
-const getServiceRequestData = (open, closed, solved) => [
-  { name: "Open", value: open, color: "#f59e0b" }, // orange-500 - semantic for pending
-  { name: "Closed", value: closed, color: "#22c55e" }, // green-500 - semantic for completed
-  { name: "Solved", value: solved, color: "#3b82f6" }, // blue-500 - semantic for resolved
+const ticketCategories = [
+  {
+    key: "open",
+    label: "Open",
+    color: "#f59e0b",
+    icon: <PieIcon className="w-5 h-5 text-orange-500" />,
+    bg: "bg-orange-100",
+  },
+  {
+    key: "closed",
+    label: "Closed",
+    color: "#22c55e",
+    icon: <CheckCircle className="w-5 h-5 text-green-500" />,
+    bg: "bg-green-100",
+  },
+  {
+    key: "solved",
+    label: "Solved",
+    color: "#3b82f6",
+    icon: <CheckCircle className="w-5 h-5 text-blue-500" />,
+    bg: "bg-blue-100",
+  },
 ];
 
-const CustomTooltip = ({ active, payload, serviceRequestData }) => {
-  if (active && payload && payload.length) {
-    const data = payload[0];
-    const total = serviceRequestData.reduce((sum, item) => sum + item.value, 0);
-    const percentage = ((data.value / total) * 100).toFixed(1);
-    
-    return (
-      <motion.div
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="bg-white border border-gray-200 rounded-lg shadow-lg p-4"
-      >
-        <p className="font-bold text-gray-900 text-base">{data.name} Requests</p>
-        <p className="text-base text-gray-600">
-          {data.value} ({percentage}%)
-        </p>
-      </motion.div>
-    );
-  }
-  return null;
-};
-
 export function TicketPieChart({ ticketsOpen = 0, ticketsClosed = 0, ticketsSolved = 0 }) {
-  const serviceRequestData = getServiceRequestData(ticketsOpen, ticketsClosed, ticketsSolved);
-  const total = serviceRequestData.reduce((sum, item) => sum + item.value, 0);
+  const total = ticketsOpen + ticketsClosed + ticketsSolved;
+  const values = {
+    open: ticketsOpen,
+    closed: ticketsClosed,
+    solved: ticketsSolved,
+  };
+  const percentages = {
+    open: total ? ((ticketsOpen / total) * 100).toFixed(1) : 0,
+    closed: total ? ((ticketsClosed / total) * 100).toFixed(1) : 0,
+    solved: total ? ((ticketsSolved / total) * 100).toFixed(1) : 0,
+  };
 
   return (
-    <motion.div
-      initial={{ opacity: 0, scale: 0.9 }}
-      animate={{ opacity: 1, scale: 1 }}
-      transition={{ duration: 0.8, ease: "easeOut" }}
-    >
-      <Card className="bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md transition-all duration-300 p-6">
-        {/* Header with aligned download button */}
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h3 className="text-xl font-bold text-gray-900">Request Overview</h3>
-            <p className="text-sm text-gray-500 mt-1">Total: {total} requests</p>
-          </div>
-          <motion.button
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            className="px-2 py-1 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded transition-colors text-sm font-medium flex items-center gap-2"
-            aria-label="Download CSV report"
-            title="Download CSV report"
+    <Card className="bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md transition-all duration-300 p-6 h-32 flex flex-row items-center gap-4">
+      {/* Service Ticket Icon with orange-100 background */}
+      <div className="flex items-center justify-center w-12 h-12 rounded-lg bg-orange-100 border border-orange-200 mr-2 flex-shrink-0">
+        <FileText className="w-7 h-7 text-orange-500" />
+      </div>
+      {/* Mini KPI Cards with dividers and hover states */}
+      <div className="flex flex-row w-full h-full">
+        {ticketCategories.map((cat, idx) => (
+          <div
+            key={cat.key}
+            className={`flex-1 flex flex-col items-center justify-center bg-gray-50 rounded-lg border border-gray-100 py-2 px-2 min-w-[90px] transition-all duration-150 cursor-pointer hover:shadow hover:bg-white relative ${idx < ticketCategories.length - 1 ? 'mr-2' : ''}`}
+            style={{ boxShadow: "0 1px 2px 0 rgba(16,30,54,0.04)" }}
           >
-            <Download className="w-4 h-4" />
-            Download CSV
-          </motion.button>
-        </div>
-
-        <div className="flex flex-col lg:flex-row items-center gap-8">
-          {/* True Circular Donut Chart - Centered */}
-          <motion.div 
-            className="flex-shrink-0 flex items-center justify-center"
-            initial={{ rotate: -180 }}
-            animate={{ rotate: 0 }}
-            transition={{ duration: 1.2, ease: "easeOut" }}
-          >
-            <div className="w-48 h-48 flex items-center justify-center">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={serviceRequestData}
-                    cx="50%"
-                    cy="50%"
-                    outerRadius={80}
-                    innerRadius={50}
-                    dataKey="value"
-                    stroke="white"
-                    strokeWidth={2}
-                    paddingAngle={2}
-                    style={{ cursor: 'pointer' }}
-                  >
-                    {serviceRequestData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip 
-                    content={(props) => <CustomTooltip {...props} serviceRequestData={serviceRequestData} />} 
-                  />
-                </PieChart>
-              </ResponsiveContainer>
+            <div className={`mb-1 ${cat.bg} rounded-full p-1 flex items-center justify-center`}>{cat.icon}</div>
+            <div className="flex items-end gap-1">
+              <span className="text-2xl font-bold text-gray-900">{values[cat.key]}</span>
+              <span className="text-xs font-medium text-gray-500">{cat.label}</span>
             </div>
-          </motion.div>
-
-          {/* Clean Legend List - Below chart on mobile, right on desktop */}
-          <div className="flex-1 w-full lg:w-auto">
-            <div className="space-y-3">
-              {serviceRequestData.map((item, index) => {
-                const percentage = total > 0 ? ((item.value / total) * 100).toFixed(1) : 0;
-                return (
-                  <motion.div
-                    key={item.name}
-                    initial={{ opacity: 0, x: 20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: index * 0.1 }}
-                    className="flex items-center gap-3"
-                  >
-                    {/* 12px colored dot */}
-                    <div 
-                      className="w-3 h-3 rounded-full flex-shrink-0" 
-                      style={{ backgroundColor: item.color }}
-                    />
-                    {/* Bold percentage */}
-                    <span className="font-bold text-gray-900">{percentage}%</span>
-                    {/* Count in gray */}
-                    <span className="text-gray-700">{item.value} {item.name}</span>
-                  </motion.div>
-                );
-              })}
-            </div>
+            <span className="text-xs font-semibold mt-1" style={{ color: cat.color }}>{percentages[cat.key]}%</span>
+            {/* Vertical divider except after last card */}
+            {idx < ticketCategories.length - 1 && (
+              <div className="absolute right-0 top-2 bottom-2 w-px bg-gray-200" />
+            )}
           </div>
-        </div>
-      </Card>
-    </motion.div>
+        ))}
+      </div>
+    </Card>
   );
 } 

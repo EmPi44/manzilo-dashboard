@@ -1,7 +1,7 @@
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { useState } from "react";
 import CountUp from "react-countup";
-import { TrendingUp, TrendingDown, Minus, Clock, Users, CheckCircle, FileText, ChevronRight } from "lucide-react";
+import { TrendingUp, TrendingDown, Minus, Clock, Users, CheckCircle, FileText, ChevronRight, Trophy } from "lucide-react";
 import { Card } from "./ui/card";
 
 const iconMap = {
@@ -10,14 +10,6 @@ const iconMap = {
   time: <Clock className="h-6 w-6 text-orange-500" strokeWidth={2} />,
   solved: <CheckCircle className="h-6 w-6 text-blue-500" strokeWidth={2} />,
   tenants: <Users className="h-6 w-6 text-rose-500" strokeWidth={2} />,
-};
-
-const accentMap = {
-  open: "text-indigo-500",
-  closed: "text-green-500",
-  time: "text-orange-500",
-  solved: "text-blue-500",
-  tenants: "text-rose-500",
 };
 
 export function MetricCard({ 
@@ -30,14 +22,6 @@ export function MetricCard({
   showBadge = false 
 }) {
   const [isHovered, setIsHovered] = useState(false);
-
-  // Performance-based styling
-  const getPerformanceColor = () => {
-    if (threshold && value >= threshold) return "text-emerald-600";
-    if (trend > 0) return "text-emerald-600";
-    if (trend < 0) return "text-amber-600";
-    return "text-gray-600";
-  };
 
   const getTrendIcon = () => {
     if (trend > 0) return <TrendingUp className="h-4 w-4 text-emerald-600" />;
@@ -58,106 +42,62 @@ export function MetricCard({
       onHoverStart={() => setIsHovered(true)}
       onHoverEnd={() => setIsHovered(false)}
     >
-      <Card className="relative overflow-hidden bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md transition-all duration-300 p-6 min-h-[200px] group cursor-pointer">
-        
-        {/* New Record Badge - Top Left Corner */}
-        <AnimatePresence>
-          {showBadge && (
-            <motion.div
-              initial={{ opacity: 0, scale: 0.8 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.8 }}
-              className="absolute top-0 left-0 z-10"
-            >
-              <div className="bg-green-100 text-green-700 px-2 py-1 text-xs font-semibold rounded-br-lg border-r border-b border-green-200">
-                New Record!
+      <Card className="relative overflow-hidden bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md transition-all duration-300 p-6 h-32 flex flex-col justify-between group cursor-pointer">
+        {/* Top Row: Icon, Number, Trophy/% column */}
+        <div className="flex items-start justify-between mb-1 w-full">
+          {/* Icon */}
+          <div className="w-12 h-12 rounded-lg bg-gray-50 flex items-center justify-center border border-gray-100 mr-2 flex-shrink-0">
+            {iconMap[type]}
+          </div>
+          {/* Number and right column */}
+          <div className="flex-1 flex items-center min-w-0">
+            <div className="flex items-center min-w-0">
+              <span className="text-4xl font-bold text-gray-900 truncate">
+                <CountUp
+                  end={numericValue}
+                  duration={1.5}
+                  separator="," 
+                  decimals={type === 'time' ? 1 : 0}
+                  suffix={type === 'time' ? 'h' : ''}
+                />
+              </span>
+            </div>
+            {/* Trophy and % column */}
+            <div className="flex flex-col items-end justify-center ml-3 min-w-[70px]">
+              {showBadge && (
+                <span className="flex items-center gap-1 text-yellow-600 text-base font-semibold mb-1">
+                  <Trophy className="w-5 h-5 text-yellow-400" fill="#facc15" stroke="#facc15" />
+                  <span className="text-sm font-semibold text-yellow-700">New Record!</span>
+                </span>
+              )}
+              <div className="flex items-center gap-1 px-2 py-1 rounded bg-green-50 text-green-700 text-xs font-medium">
+                {getTrendIcon()}
+                <span>{Math.abs(trend)}%</span>
               </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        {/* Header Row: Icon + Percent Change Chip */}
-        <div className="flex items-center justify-between mb-4">
-          <motion.div 
-            animate={{ 
-              scale: isHovered ? 1.05 : 1,
-              rotate: isHovered ? 2 : 0 
-            }}
-            transition={{ duration: 0.2 }}
-          >
-            <div className="w-12 h-12 rounded-lg bg-gray-50 flex items-center justify-center border border-gray-100">
-              {iconMap[type]}
             </div>
-          </motion.div>
-          
-          {/* Percent Change Chip - Top Right */}
-          <motion.div
-            initial={{ opacity: 0, x: 10 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.3 }}
-          >
-            <div className="flex items-center gap-1 px-2 py-1 rounded bg-green-50 text-green-700 text-xs font-medium">
-              {getTrendIcon()}
-              <span>{Math.abs(trend)}%</span>
-            </div>
-          </motion.div>
-        </div>
-
-        {/* Body: Metric Value */}
-        <div className="mb-2">
-          <motion.div 
-            className="text-4xl font-bold text-gray-900"
-            key={value} // Triggers re-animation when value changes
-          >
-            <CountUp
-              end={numericValue}
-              duration={1.5}
-              separator=","
-              decimals={type === 'time' ? 1 : 0}
-              suffix={type === 'time' ? 'h' : ''}
-            />
-          </motion.div>
+          </div>
         </div>
 
         {/* Label */}
-        <div className="mb-2">
+        <div className="mb-1">
           <span className="text-base font-medium text-gray-700">{label}</span>
         </div>
 
-        {/* Secondary Line: Previous & Goal */}
-        {type === 'time' && (
-          <motion.div 
-            className="mb-4"
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.4 }}
-          >
-            <div className="text-sm text-gray-500">
-              Previous: {previousValue}h • Goal: 100h
-            </div>
-          </motion.div>
-        )}
-
         {/* Progress Bar - Enhanced */}
         {type === 'time' && (
-          <motion.div 
-            className="mt-auto"
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.5 }}
-          >
-            <div className="w-full bg-gray-200 rounded-full h-1.5 mb-2">
-              <motion.div
-                className="bg-orange-500 h-1.5 rounded-full"
-                initial={{ width: 0 }}
-                animate={{ width: `${Math.min((numericValue / 100) * 100, 100)}%` }}
-                transition={{ duration: 1, delay: 0.6 }}
-              />
-            </div>
-            <div className="text-sm text-gray-600">
-              {Math.round((numericValue / 100) * 100)}% of goal
-            </div>
-          </motion.div>
+          <div className="w-full bg-gray-200 rounded-full h-1.5 mb-1">
+            <motion.div
+              className="bg-orange-500 h-1.5 rounded-full"
+              initial={{ width: 0 }}
+              animate={{ width: `${Math.min((numericValue / 100) * 100, 100)}%` }}
+              transition={{ duration: 1, delay: 0.6 }}
+            />
+          </div>
+        )}
+        {type === 'time' && (
+          <div className="text-sm text-gray-600">
+            {Math.round((numericValue / 100) * 100)}% of goal
+          </div>
         )}
 
         {/* Drill-in Affordance - Right Aligned */}
