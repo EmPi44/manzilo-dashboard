@@ -1,4 +1,5 @@
 import React from "react";
+import Image from "next/image";
 
 // Key logo SVG with status dot
 function KeyLogo() {
@@ -66,8 +67,8 @@ export default function Sidebar() {
     <aside className="w-[200px] flex flex-col h-screen bg-white px-4 py-6">
       {/* Header/Brand */}
       <div className="flex items-center gap-2 mb-6">
-        <KeyLogo />
-        <span className="text-[14px] font-semibold text-[#111827]">Master Key</span>
+        <Image src="/Manzilo_logo_Idee_2.jpeg" alt="Manzilo Logo" width={32} height={32} className="rounded" />
+        <span className="text-[14px] font-semibold text-[#111827]">Manzilo</span>
       </div>
       {/* Nav */}
       <nav className="flex flex-col gap-1 mb-2">
