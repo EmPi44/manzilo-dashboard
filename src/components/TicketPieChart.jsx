@@ -39,29 +39,24 @@ export function TicketPieChart({ ticketsOpen = 0, ticketsClosed = 0, ticketsSolv
   };
 
   return (
-    <Card className="bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md transition-all duration-300 h-32 flex flex-row items-center gap-4 w-full p-0">
-      {/* Service Ticket Icon with orange-100 background */}
-      <div className="flex items-center justify-center w-12 h-12 rounded-lg bg-orange-100 border border-orange-200 mr-2 flex-shrink-0 ml-6">
-        <FileText className="w-7 h-7 text-orange-500" />
+    <Card className="relative overflow-hidden bg-white border border-gray-100 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 p-3 min-h-[5.5rem] h-full flex flex-row items-center group cursor-pointer">
+      {/* Icon on the left, smaller size */}
+      <div className="flex items-center justify-center w-9 min-w-[2.25rem] h-9 rounded-md bg-orange-100 border border-orange-200 mr-4">
+        <FileText className="w-5 h-5 text-orange-500" />
       </div>
-      {/* Mini KPI Cards with dividers and hover states */}
-      <div className="flex flex-row w-full h-full pr-6">
+      {/* Ticket KPIs horizontally aligned, flex-1, centered */}
+      <div className="flex flex-row flex-1 items-center justify-between h-full">
         {ticketCategories.map((cat, idx) => (
           <div
             key={cat.key}
-            className={`flex-1 flex flex-col items-center justify-center bg-gray-50 rounded-lg border border-gray-100 py-2 px-2 min-w-[90px] transition-all duration-150 cursor-pointer hover:shadow hover:bg-white relative ${idx < ticketCategories.length - 1 ? 'mr-2' : ''}`}
-            style={{ boxShadow: "0 1px 2px 0 rgba(16,30,54,0.04)" }}
+            className="flex flex-col items-center justify-center h-full px-3"
           >
             <div className={`mb-1 ${cat.bg} rounded-full p-1 flex items-center justify-center`}>{cat.icon}</div>
             <div className="flex items-end gap-1">
-              <span className="text-2xl font-bold text-gray-900">{values[cat.key]}</span>
-              <span className="text-xs font-medium text-gray-500">{cat.label}</span>
+              <span className="text-xl font-bold text-gray-900 leading-tight align-baseline">{values[cat.key]}</span>
+              <span className="text-xs font-medium text-gray-500 leading-tight align-baseline">{cat.label}</span>
             </div>
             <span className="text-xs font-semibold mt-1" style={{ color: cat.color }}>{percentages[cat.key]}%</span>
-            {/* Vertical divider except after last card */}
-            {idx < ticketCategories.length - 1 && (
-              <div className="absolute right-0 top-2 bottom-2 w-px bg-gray-200" />
-            )}
           </div>
         ))}
       </div>
