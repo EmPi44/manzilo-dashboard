@@ -42,17 +42,17 @@ export function MetricCard({
       onHoverStart={() => setIsHovered(true)}
       onHoverEnd={() => setIsHovered(false)}
     >
-      <Card className="relative overflow-hidden bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md transition-all duration-300 p-6 h-32 flex flex-col justify-between group cursor-pointer">
+      <Card className="relative overflow-hidden bg-white border border-gray-100 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 p-4 min-h-[7.5rem] flex flex-col justify-between group cursor-pointer">
         {/* Top Row: Icon, Number, Trophy/% column */}
-        <div className="flex items-start justify-between mb-1 w-full">
+        <div className="flex items-start justify-between mb-1 w-full gap-2">
           {/* Icon */}
-          <div className="w-12 h-12 rounded-lg bg-gray-50 flex items-center justify-center border border-gray-100 mr-2 flex-shrink-0">
+          <div className="w-10 h-10 rounded-lg bg-gray-50 flex items-center justify-center border border-gray-100 mr-2 flex-shrink-0 shadow-sm">
             {iconMap[type]}
           </div>
           {/* Number and right column */}
-          <div className="flex-1 flex items-center min-w-0">
+          <div className="flex-1 flex items-center min-w-0 gap-2">
             <div className="flex items-center min-w-0">
-              <span className="text-4xl font-bold text-gray-900 truncate">
+              <span className="text-3xl font-bold text-gray-900 truncate">
                 <CountUp
                   end={numericValue}
                   duration={1.5}
@@ -63,14 +63,14 @@ export function MetricCard({
               </span>
             </div>
             {/* Trophy and % column */}
-            <div className="flex flex-col items-end justify-center ml-3 min-w-[70px]">
+            <div className="flex flex-col items-end justify-center ml-2 min-w-[60px]">
               {showBadge && (
-                <span className="flex items-center gap-1 text-yellow-600 text-base font-semibold mb-1">
-                  <Trophy className="w-5 h-5 text-yellow-400" fill="#facc15" stroke="#facc15" />
-                  <span className="text-sm font-semibold text-yellow-700">New Record!</span>
+                <span className="flex items-center gap-1 text-yellow-600 text-xs font-semibold mb-1">
+                  <Trophy className="w-4 h-4 text-yellow-400" fill="#facc15" stroke="#facc15" />
+                  <span className="text-xs font-semibold text-yellow-700">New Record!</span>
                 </span>
               )}
-              <div className="flex items-center gap-1 px-2 py-1 rounded bg-green-50 text-green-700 text-xs font-medium">
+              <div className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-green-50 text-green-700 text-[11px] font-medium shadow">
                 {getTrendIcon()}
                 <span>{Math.abs(trend)}%</span>
               </div>
@@ -79,16 +79,13 @@ export function MetricCard({
         </div>
 
         {/* Label */}
-        <div className="mb-1">
-          <span className="text-base font-medium text-gray-700">{label}</span>
+        <div className="mb-0 mt-1">
+          <span className="text-sm font-medium text-gray-700 tracking-wide">{label}</span>
         </div>
 
-        {/* Progress Bar - Enhanced */}
-        {/* Removed progress bar and goal percentage for 'time' type as requested */}
-        
         {/* Drill-in Affordance - Right Aligned */}
         <motion.button
-          className="absolute bottom-3 right-3 p-2 rounded-lg bg-gray-100 hover:bg-gray-200 transition-colors opacity-0 group-hover:opacity-100"
+          className="absolute bottom-2 right-2 p-1.5 rounded-lg bg-gray-100 hover:bg-gray-200 transition-colors opacity-0 group-hover:opacity-100 shadow"
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
           aria-label={`View details for ${label}`}
