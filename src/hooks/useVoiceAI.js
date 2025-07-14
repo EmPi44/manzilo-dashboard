@@ -68,18 +68,42 @@ export const useVoiceAI = () => {
     return true;
   }, []);
 
-  // Process voice input with OpenAI
+  // Helper: Split text into sentences (simple regex)
+  function splitSentences(text) {
+    // This regex splits on . ! ? followed by a space or end of string
+    return text.match(/[^.!?\n]+[.!?\n]+|[^.!?\n]+$/g) || [];
+  }
+
+  // Queue for TTS sentences
+  const ttsQueueRef = useRef([]);
+  const isPlayingRef = useRef(false);
+
+  // Play next sentence in the queue
+  const playNextTTS = async () => {
+    if (isPlayingRef.current || ttsQueueRef.current.length === 0) return;
+    isPlayingRef.current = true;
+    const sentence = ttsQueueRef.current.shift();
+    try {
+      await speakResponse(sentence);
+    } finally {
+      isPlayingRef.current = false;
+      if (ttsQueueRef.current.length > 0) {
+        playNextTTS();
+      }
+    }
+  };
+
+  // Process voice input with OpenAI (streaming, sentence-by-sentence TTS)
   const processVoiceInput = async (text) => {
     if (!text.trim()) return;
 
     setIsProcessing(true);
     setError('');
+    setResponse('');
+    ttsQueueRef.current = [];
+    isPlayingRef.current = false;
 
     try {
-      // First, convert speech to text using Whisper (if needed)
-      // For now, we'll use the text directly from speech recognition
-      
-      // Call OpenAI GPT-4 for response
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: {
@@ -91,16 +115,60 @@ export const useVoiceAI = () => {
         }),
       });
 
-      if (!response.ok) {
+      if (!response.ok || !response.body) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      const data = await response.json();
-      setResponse(data.response);
-      
-      // Optional: Convert response to speech
-      if (data.response) {
-        speakResponse(data.response);
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder('utf-8');
+      let done = false;
+      let aiText = '';
+      let buffer = '';
+      setResponse('');
+
+      while (!done) {
+        const { value, done: doneReading } = await reader.read();
+        done = doneReading;
+        if (value) {
+          const chunk = decoder.decode(value, { stream: true });
+          chunk.split(/\n/).forEach(line => {
+            if (line.startsWith('data:')) {
+              const data = line.replace('data:', '').trim();
+              if (data && data !== '[DONE]') {
+                try {
+                  const json = JSON.parse(data);
+                  const content = json.choices?.[0]?.delta?.content;
+                  if (content) {
+                    aiText += content;
+                    setResponse(prev => prev + content);
+                    buffer += content;
+                    // Check for complete sentences
+                    const sentences = splitSentences(buffer);
+                    // All but the last are complete
+                    for (let i = 0; i < sentences.length - 1; i++) {
+                      ttsQueueRef.current.push(sentences[i].trim());
+                    }
+                    // The last may be incomplete, keep it in buffer
+                    buffer = sentences.length > 0 ? sentences[sentences.length - 1] : '';
+                    // Start playing if not already
+                    if (!isPlayingRef.current && ttsQueueRef.current.length > 0) {
+                      playNextTTS();
+                    }
+                  }
+                } catch (e) {
+                  // ignore JSON parse errors
+                }
+              }
+            }
+          });
+        }
+      }
+      // After stream ends, flush any remaining buffer as a sentence
+      if (buffer.trim()) {
+        ttsQueueRef.current.push(buffer.trim());
+        if (!isPlayingRef.current) {
+          playNextTTS();
+        }
       }
 
     } catch (err) {
@@ -111,27 +179,28 @@ export const useVoiceAI = () => {
     }
   };
 
-  // Text-to-speech functionality
-  const speakResponse = (text) => {
-    if (!text || !('speechSynthesis' in window)) return;
-
+  // Text-to-speech functionality using OpenAI TTS
+  const speakResponse = async (text) => {
+    if (!text) return;
     setIsSpeaking(true);
-    
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.rate = 0.9;
-    utterance.pitch = 1;
-    utterance.volume = 0.8;
-    
-    utterance.onend = () => {
+    try {
+      const ttsRes = await fetch('/api/tts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text, voice: 'onyx' }),
+      });
+      if (!ttsRes.ok) throw new Error('TTS API error');
+      const audioBlob = await ttsRes.blob();
+      const audioUrl = URL.createObjectURL(audioBlob);
+      const audio = new Audio(audioUrl);
+      audio.onended = () => setIsSpeaking(false);
+      audio.onerror = () => setIsSpeaking(false);
+      audio.play();
+    } catch (err) {
       setIsSpeaking(false);
-    };
-    
-    utterance.onerror = (event) => {
-      console.error('Speech synthesis error:', event.error);
-      setIsSpeaking(false);
-    };
-
-    speechSynthesis.speak(utterance);
+      setError('Failed to play AI voice response');
+      console.error('TTS error:', err);
+    }
   };
 
   // Start listening
@@ -156,7 +225,8 @@ export const useVoiceAI = () => {
       recognitionRef.current.stop();
     }
     if (isSpeaking) {
-      speechSynthesis.cancel();
+      // No longer needed as speechSynthesis is removed
+      // speechSynthesis.cancel(); 
       setIsSpeaking(false);
     }
   }, [isListening, isSpeaking]);

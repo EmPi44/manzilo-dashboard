@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 
+export const runtime = 'edge'; // Use edge runtime for lower latency
+
 export async function POST(request) {
   try {
     const { message, context } = await request.json();
@@ -11,7 +13,6 @@ export async function POST(request) {
       );
     }
 
-    // Check if OpenAI API key is configured
     const openaiApiKey = process.env.OPENAI_API_KEY;
     if (!openaiApiKey) {
       return NextResponse.json(
@@ -20,15 +21,15 @@ export async function POST(request) {
       );
     }
 
-    // Call OpenAI API
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    // Prepare OpenAI streaming request
+    const openaiRes = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${openaiApiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4',
+        model: 'gpt-4o',
         messages: [
           {
             role: 'system',
@@ -39,14 +40,14 @@ export async function POST(request) {
             content: message
           }
         ],
-        max_tokens: 150,
-        temperature: 0.7,
-        stream: false
+        max_tokens: 30,
+        temperature: 0.4,
+        stream: true
       }),
     });
 
-    if (!response.ok) {
-      const errorData = await response.json();
+    if (!openaiRes.ok || !openaiRes.body) {
+      const errorData = await openaiRes.json();
       console.error('OpenAI API error:', errorData);
       return NextResponse.json(
         { error: 'Failed to get response from AI' },
@@ -54,14 +55,16 @@ export async function POST(request) {
       );
     }
 
-    const data = await response.json();
-    const aiResponse = data.choices[0]?.message?.content || 'Sorry, I could not process your request.';
-
-    return NextResponse.json({
-      response: aiResponse,
-      usage: data.usage
+    // Stream the OpenAI response to the client
+    return new Response(openaiRes.body, {
+      status: 200,
+      headers: {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-store',
+        'Connection': 'keep-alive',
+        'Transfer-Encoding': 'chunked',
+      },
     });
-
   } catch (error) {
     console.error('Chat API error:', error);
     return NextResponse.json(
