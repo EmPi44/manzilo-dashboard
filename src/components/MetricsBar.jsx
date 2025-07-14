@@ -1,40 +1,123 @@
-import React from "react";
+import { motion } from "framer-motion";
+import { useState, useEffect } from "react";
+import MetricCardRow from "./MetricCardRow";
 
-const iconMap = {
-  "ticket-open": (
-    <svg width="28" height="28" fill="none" stroke="#6E41F4" strokeWidth="2" viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="10" rx="2"/><path d="M7 7V3h10v4"/></svg>
-  ),
-  "ticket-closed": (
-    <svg width="28" height="28" fill="none" stroke="#22C55E" strokeWidth="2" viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="10" rx="2"/><path d="M7 7V3h10v4"/><path d="M9 14l2 2l4-4"/></svg>
-  ),
-  "clock": (
-    <svg width="28" height="28" fill="none" stroke="#F59E42" strokeWidth="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
-  ),
-  "check-circle": (
-    <svg width="28" height="28" fill="none" stroke="#3B82F6" strokeWidth="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9 12l2 2l4-4"/></svg>
-  ),
-  "users": (
-    <svg width="28" height="28" fill="none" stroke="#F43F5E" strokeWidth="2" viewBox="0 0 24 24"><circle cx="9" cy="7" r="4"/><circle cx="17" cy="17" r="4"/><path d="M17 13a4 4 0 0 0-8 0"/></svg>
-  ),
-};
+export default function MetricsBar({ selectedBuilding }) {
+  const [metrics, setMetrics] = useState({
+    ticketsOpen: 0,
+    ticketsClosed: 0,
+    ticketsSolved: 0,
+    timeSaved: 0,
+    tenants: 0
+  });
 
-export default function MetricsBar({ metrics }) {
+  // Animate metrics when building changes
+  useEffect(() => {
+    if (selectedBuilding) {
+      const newMetrics = selectedBuilding.metrics;
+      
+      // Animate the transition by updating values gradually
+      const animateMetrics = () => {
+        setMetrics(prevMetrics => {
+          const step = 0.1;
+          const updatedMetrics = {};
+          
+          Object.keys(newMetrics).forEach(key => {
+            const target = newMetrics[key];
+            const current = prevMetrics[key];
+            const diff = target - current;
+            
+            if (Math.abs(diff) < 1) {
+              updatedMetrics[key] = target;
+            } else {
+              updatedMetrics[key] = current + (diff * step);
+            }
+          });
+          
+          return updatedMetrics;
+        });
+      };
+
+      const interval = setInterval(animateMetrics, 50);
+      
+      // Clean up interval when animation is complete
+      const timeout = setTimeout(() => {
+        clearInterval(interval);
+        setMetrics(newMetrics);
+      }, 1000);
+
+      return () => {
+        clearInterval(interval);
+        clearTimeout(timeout);
+      };
+    }
+  }, [selectedBuilding]);
+
+  if (!selectedBuilding) {
+    return (
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        className="w-full p-8 text-center text-gray-500"
+      >
+        Select a building to view metrics
+      </motion.div>
+    );
+  }
+
   return (
-    <div className="w-full flex flex-wrap gap-6 justify-between items-center mb-8">
-      {metrics.map((metric) => (
-        <div
-          key={metric.label}
-          className="flex-1 min-w-[180px] max-w-[220px] bg-white/80 rounded-2xl shadow p-4 flex items-center gap-4"
+    <motion.div
+      className="w-full p-6 bg-gradient-to-br from-gray-50/50 to-white/30 backdrop-blur-sm rounded-2xl border border-gray-200/30"
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.6, ease: "easeOut" }}
+    >
+      {/* Header with building info */}
+      <motion.div
+        className="mb-6"
+        initial={{ opacity: 0, x: -20 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ delay: 0.2 }}
+      >
+        <h2 className="text-2xl font-bold text-gray-900 mb-2">
+          {selectedBuilding.name}
+        </h2>
+        <p className="text-gray-600">
+          Performance metrics and service request overview
+        </p>
+      </motion.div>
+
+      {/* Metrics Cards */}
+      <MetricCardRow
+        ticketsOpen={Math.round(metrics.ticketsOpen)}
+        ticketsClosed={Math.round(metrics.ticketsClosed)}
+        ticketsSolved={Math.round(metrics.ticketsSolved)}
+        timeSaved={Math.round(metrics.timeSaved)}
+        tenants={Math.round(metrics.tenants)}
+      />
+
+      {/* Quick Actions */}
+      <motion.div
+        className="flex gap-3 mt-6"
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.4 }}
+      >
+        <motion.button
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.98 }}
+          className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
         >
-          <div className="flex items-center justify-center w-12 h-12 rounded-xl" style={{ background: metric.color + '22' }}>
-            {iconMap[metric.icon]}
-          </div>
-          <div>
-            <div className="text-2xl font-bold text-[#232946]">{metric.value}</div>
-            <div className="text-sm font-medium text-[#6B7280]">{metric.label}</div>
-          </div>
-        </div>
-      ))}
-    </div>
+          Export Report
+        </motion.button>
+        <motion.button
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.98 }}
+          className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+        >
+          View Details
+        </motion.button>
+      </motion.div>
+    </motion.div>
   );
 } 

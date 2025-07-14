@@ -4,7 +4,7 @@ import Sidebar from "../components/Sidebar";
 import { useState } from "react";
 import { communities } from "../data/dummyData";
 import Map from "../components/Map";
-import { MetricCard } from "../components/MetricCard";
+import MetricCardRow from "../components/MetricCardRow";
 import { IconBuildingSkyscraper } from "@tabler/icons-react";
 import type { ReactNode } from "react";
 
@@ -181,11 +181,13 @@ export default function Home() {
           </div>
 
           {/* Metrics */}
-          <div className="w-full flex flex-wrap gap-6 justify-between items-stretch mb-8 sm:grid sm:grid-cols-2 md:grid-cols-3 lg:flex lg:flex-row">
-            {metrics.map((m) => (
-              <MetricCard key={m.label} {...m} />
-            ))}
-          </div>
+          <MetricCardRow 
+            ticketsOpen={Number(metrics.find(m => m.type === "open")?.value) || 0}
+            ticketsClosed={Number(metrics.find(m => m.type === "closed")?.value) || 0}
+            ticketsSolved={Number(metrics.find(m => m.type === "solved")?.value) || 0}
+            timeSaved={Number(metrics.find(m => m.type === "time")?.value?.toString().replace("h", "")) || 0}
+            tenants={Number(metrics.find(m => m.type === "tenants")?.value) || 0}
+          />
 
           {/* Map */}
           <div className="mt-8">
