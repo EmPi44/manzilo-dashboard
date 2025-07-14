@@ -105,7 +105,7 @@ export default function AIBubble() {
   const [active, setActive] = useState(false);
 
   return (
-    <div className="fixed bottom-8 right-8 z-50">
+    <div className="fixed top-8 right-8 z-50">
       {/* Main bubble */}
       <motion.button
         initial={false}
