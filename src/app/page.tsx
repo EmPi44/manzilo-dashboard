@@ -94,7 +94,9 @@ export default function Home() {
           <div className="flex flex-wrap gap-4 mb-8 items-end">
             {/* Community segmented control - multi-select */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Community</label>
+              <div className="flex items-center gap-2 mb-2">
+                <span className="block text-lg font-bold text-indigo-700 tracking-tight">Community</span>
+              </div>
               <div className="flex rounded-full bg-gray-100 p-1 shadow-inner">
                 <button
                   className={`px-4 py-2 rounded-full transition-all font-semibold text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 border-2 ${selectedCommunity.includes("all") ? "bg-indigo-500 text-white border-indigo-400 shadow" : "text-gray-700 hover:bg-gray-200 border-transparent"}`}
@@ -135,7 +137,9 @@ export default function Home() {
             </div>
             {/* Building custom dropdown - multi-select, modern design */}
             <div className="relative min-w-[200px]">
-              <label className="block text-sm font-medium text-gray-700 mb-1">Building</label>
+              <div className="flex items-center gap-2 mb-2">
+                <span className="block text-lg font-bold text-indigo-700 tracking-tight">Building</span>
+              </div>
               <button
                 className="w-full flex items-center justify-between px-5 py-2 bg-white rounded-full border border-gray-200 shadow-sm transition-all focus:outline-none focus:ring-2 focus:ring-indigo-400 hover:shadow-md text-base font-semibold text-gray-900"
                 onClick={() => setBuildingDropdownOpen((open) => !open)}
