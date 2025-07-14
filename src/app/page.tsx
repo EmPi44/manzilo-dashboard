@@ -1,5 +1,6 @@
 import Sidebar from "../components/Sidebar";
 import MetricCardRow from "../components/MetricCardRow";
+import Map from "../components/Map";
 
 export default function Home() {
   return (
@@ -8,6 +9,9 @@ export default function Home() {
         <Sidebar />
         <main className="flex-1 p-4 sm:p-8 overflow-auto">
           <MetricCardRow />
+          <div className="mt-8">
+            <Map />
+          </div>
         </main>
       </div>
     </div>
