@@ -1,6 +1,7 @@
 "use client";
 import { GoogleMap, useJsApiLoader, Marker } from '@react-google-maps/api';
 import { IconBuildingSkyscraper } from "@tabler/icons-react";
+import { communities } from "../data/dummyData";
 
 const containerStyle = {
   width: '100%',
@@ -48,7 +49,10 @@ const buildingIcon = {
   anchor: { x: 24, y: 48 },
 };
 
-export default function Map() {
+/**
+ * @param {{ buildings: Array<any> }} props
+ */
+export default function Map({ buildings = [] }) {
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
   
   // Check if API key is configured
@@ -73,6 +77,9 @@ export default function Map() {
     googleMapsApiKey: apiKey,
   });
 
+  // Center on first building or default
+  const center = buildings.length > 0 ? buildings[0].location : { lat: 25.2048, lng: 55.2708 };
+
   return isLoaded ? (
     <GoogleMap
       mapContainerStyle={containerStyle}
@@ -86,11 +93,14 @@ export default function Map() {
         mapTypeControl: false,
       }}
     >
-      <Marker
-        position={center}
-        icon={buildingIcon}
-        title="Property Manager Building"
-      />
+      {buildings.map((b) => (
+        <Marker
+          key={b.id}
+          position={b.location}
+          icon={buildingIcon}
+          title={b.name}
+        />
+      ))}
     </GoogleMap>
   ) : (
     <div className="w-full h-[400px] flex items-center justify-center bg-gray-100 rounded-xl">Loading map…</div>
