@@ -7,6 +7,7 @@ import Map from "../components/Map";
 import MetricCardRow from "../components/MetricCardRow";
 import { IconBuildingSkyscraper } from "@tabler/icons-react";
 import type { ReactNode } from "react";
+import AIBubble from "../components/AIBubble";
 
 // Types
 interface Building {
@@ -86,7 +87,9 @@ export default function Home() {
     : buildingOptions.filter((b) => selectedBuilding.includes(b.id)).map((b) => b.name);
 
   return (
-    <div className="min-h-screen w-full flex items-center justify-center bg-gradient-to-br from-[#232946] via-[#3a3f5a] to-[#1a1a2e] p-4 sm:p-8 lg:p-12">
+    <>
+      <AIBubble />
+      <div className="min-h-screen w-full flex items-center justify-center bg-gradient-to-br from-[#232946] via-[#3a3f5a] to-[#1a1a2e] p-4 sm:p-8 lg:p-12">
       <div className="flex bg-white/40 backdrop-blur-2xl rounded-3xl shadow-2xl w-full h-full max-w-[calc(100vw-6rem)] max-h-[calc(100vh-6rem)] overflow-hidden">
         <Sidebar />
         <main className="flex-1 p-4 sm:p-8 overflow-auto">
@@ -220,5 +223,6 @@ export default function Home() {
         </main>
       </div>
     </div>
+    </>
   );
 }

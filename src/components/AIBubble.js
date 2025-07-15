@@ -2,7 +2,7 @@
 
 import React from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { useVoiceAI } from "../hooks/useVoiceAI";
+import { useDeepgramAgent } from "../hooks/useDeepgramAgent";
 
 // Animated concentric circles for the pulse effect
 function PulseCircles({ active }) {
@@ -154,6 +154,8 @@ function SpeakingIndicator({ active }) {
 
 export default function AIBubble() {
   const {
+    isConnected,
+    isConnecting,
     isListening,
     isProcessing,
     isSpeaking,
@@ -162,7 +164,7 @@ export default function AIBubble() {
     error,
     toggleListening,
     clearConversation
-  } = useVoiceAI();
+  } = useDeepgramAgent();
 
   const isActive = isListening || isProcessing || isSpeaking;
 
@@ -186,6 +188,7 @@ export default function AIBubble() {
         }}
         className={`relative w-16 h-16 rounded-full flex items-center justify-center cursor-pointer border-2 border-white/20 ${
           error ? 'bg-gradient-to-br from-red-400 to-red-600' :
+          isConnecting ? 'bg-gradient-to-br from-yellow-400 to-yellow-600' :
           isActive ? 'bg-gradient-to-br from-blue-400 to-blue-600' :
           'bg-gradient-to-br from-green-400 to-green-600'
         }`}
@@ -205,8 +208,11 @@ export default function AIBubble() {
         {/* Speaking indicator */}
         <SpeakingIndicator active={isSpeaking} />
         
+        {/* Connecting indicator */}
+        <ProcessingSpinner active={isConnecting} />
+        
         {/* Icon - only show when not in other states */}
-        {!isListening && !isProcessing && !isSpeaking && (
+        {!isListening && !isProcessing && !isSpeaking && !isConnecting && (
           <motion.div
             animate={{ scale: [1, 1.05, 1] }}
             transition={{ 
