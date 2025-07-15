@@ -3,8 +3,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 
 /**
- * Deepgram Voice Agent hook with proper WebSocket audio streaming
- * Implements industry best practices for real-time audio
+ * Deepgram Voice Agent hook with optimized audio quality
+ * Implements fixes for robotic voice artifacts
  */
 export function useDeepgramAgent() {
   const [isConnected, setIsConnected] = useState(false);
@@ -15,6 +15,7 @@ export function useDeepgramAgent() {
   const [transcript, setTranscript] = useState('');
   const [response, setResponse] = useState('');
   const [error, setError] = useState('');
+  const [conversationHistory, setConversationHistory] = useState([]);
 
   const wsRef = useRef(null);
   const streamRef = useRef(null);
@@ -24,11 +25,87 @@ export function useDeepgramAgent() {
   const isPlayingRef = useRef(false);
   const audioBufferRef = useRef(null);
   const lastPlayTimeRef = useRef(0);
+  const heartbeatRef = useRef(null);
+  const lastAudioSentRef = useRef(0);
+  
+  // VAD and turn-taking state
+  const vadTimeoutRef = useRef(null);
+  const silenceThresholdRef = useRef(1500); // 1.5 seconds of silence
+  const lastSpeechTimeRef = useRef(0);
+  const isUserSpeakingRef = useRef(false);
+  const canInterruptRef = useRef(true);
+
+  // Audio quality optimization state
+  const playCursorRef = useRef(0);
+  const ringBufferRef = useRef(new Float32Array(16000 * 2)); // 2 seconds at 16kHz
+  const ringBufferIndexRef = useRef(0);
+
+  // VAD: Detect speech activity in audio data
+  const detectSpeechActivity = useCallback((audioData) => {
+    // Calculate RMS (Root Mean Square) to detect speech
+    let sum = 0;
+    for (let i = 0; i < audioData.length; i++) {
+      sum += audioData[i] * audioData[i];
+    }
+    const rms = Math.sqrt(sum / audioData.length);
+    
+    // Threshold for speech detection (adjust based on testing)
+    const speechThreshold = 0.01;
+    return rms > speechThreshold;
+  }, []);
+
+  // Heartbeat to keep WebSocket connection alive
+  const startHeartbeat = useCallback(() => {
+    if (heartbeatRef.current) {
+      clearInterval(heartbeatRef.current);
+    }
+    
+    heartbeatRef.current = setInterval(() => {
+      if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+        const now = Date.now();
+        const timeSinceLastAudio = now - lastAudioSentRef.current;
+        
+        // If no audio sent in 2 seconds, send a silent audio chunk to keep connection alive
+        if (timeSinceLastAudio > 2000) {
+          console.log('[DeepgramAgent] 💓 Sending heartbeat to keep connection alive');
+          const silentChunk = new Int16Array(1600).fill(0); // 100ms of silence at 16kHz
+          wsRef.current.send(silentChunk.buffer);
+          lastAudioSentRef.current = now;
+        }
+      }
+    }, 1000); // Check every second
+  }, []);
+
+  // Stop heartbeat
+  const stopHeartbeat = useCallback(() => {
+    if (heartbeatRef.current) {
+      clearInterval(heartbeatRef.current);
+      heartbeatRef.current = null;
+    }
+  }, []);
+
+  // Stop AI speech when user interrupts
+  const stopAISpeech = useCallback(() => {
+    console.log('[DeepgramAgent] 🛑 Stopping AI speech due to user interruption');
+    
+    // Clear audio queue
+    audioQueueRef.current = [];
+    
+    // Stop current audio playback
+    if (isPlayingRef.current) {
+      isPlayingRef.current = false;
+      setIsSpeaking(false);
+    }
+    
+    // Note: Deepgram handles interruptions automatically when it detects user speech
+    console.log('[DeepgramAgent] 🛑 AI speech stopped - Deepgram will handle interruption detection');
+  }, []);
 
   // Initialize audio context with proper settings
   const initializeAudioContext = useCallback(() => {
     if (!audioContextRef.current) {
       console.log('[DeepgramAgent] 🔊 Initializing audio context...');
+      // Use default sample rate to avoid conflicts
       audioContextRef.current = new (window.AudioContext || window.webkitAudioContext)();
       
       // Resume audio context if suspended (required for Chrome)
@@ -38,13 +115,14 @@ export function useDeepgramAgent() {
       
       console.log('[DeepgramAgent] 🔊 Audio context initialized:', {
         sampleRate: audioContextRef.current.sampleRate,
-        state: audioContextRef.current.state
+        state: audioContextRef.current.state,
+        baseLatency: audioContextRef.current.baseLatency
       });
     }
     return audioContextRef.current;
   }, []);
 
-  // Proper audio streaming handler - no chunking issues
+  // Simple and reliable audio playback
   const handleTTSAudio = useCallback(async (audioData) => {
     if (!audioData) {
       console.log('[DeepgramAgent] 🔊 No audio data received');
@@ -77,12 +155,28 @@ export function useDeepgramAgent() {
         throw new Error(`Unsupported audio data type: ${typeof audioData}`);
       }
 
-      // Add to queue for proper streaming
-      audioQueueRef.current.push(pcmData);
+      // Convert Int16 PCM to Float32 for Web Audio API
+      const floatData = new Float32Array(pcmData.length);
+      for (let i = 0; i < pcmData.length; i++) {
+        floatData[i] = pcmData[i] / 32768.0;
+      }
+
+      // Add to audio queue
+      audioQueueRef.current.push(floatData);
       
-      // Start playing if not already playing
+      // Start playing if not already playing and we have enough audio data
+      // Wait for 3 chunks to reduce gaps, but start after 1 second if we have fewer
       if (!isPlayingRef.current) {
-        playAudioStream();
+        if (audioQueueRef.current.length >= 3) {
+          playAudioQueue();
+        } else if (audioQueueRef.current.length >= 1) {
+          // Start after a short delay to see if more chunks arrive
+          setTimeout(() => {
+            if (!isPlayingRef.current && audioQueueRef.current.length >= 1) {
+              playAudioQueue();
+            }
+          }, 200); // 200ms delay
+        }
       }
       
     } catch (error) {
@@ -91,8 +185,8 @@ export function useDeepgramAgent() {
     }
   }, []);
 
-  // Proper audio streaming with continuous playback
-  const playAudioStream = useCallback(async () => {
+  // Simple sequential audio playback
+  const playAudioQueue = useCallback(async () => {
     if (isPlayingRef.current || audioQueueRef.current.length === 0) {
       return;
     }
@@ -103,73 +197,45 @@ export function useDeepgramAgent() {
     try {
       const audioContext = initializeAudioContext();
       
-      // Create a single continuous audio buffer
-      let totalSamples = 0;
-      const audioChunks = [];
+      console.log('[DeepgramAgent] 🔊 Starting audio playback, chunks:', audioQueueRef.current.length);
       
-      // Collect all available chunks
+      // Play chunks sequentially with minimal gaps
       while (audioQueueRef.current.length > 0) {
-        const pcmData = audioQueueRef.current.shift();
-        audioChunks.push(pcmData);
-        totalSamples += pcmData.length;
+        const floatData = audioQueueRef.current.shift();
+        
+        // Create audio buffer at 16kHz (Deepgram's output rate)
+        const audioBuffer = audioContext.createBuffer(1, floatData.length, 16000);
+        audioBuffer.getChannelData(0).set(floatData);
+        
+        console.log('[DeepgramAgent] 🔊 Playing audio chunk:', {
+          samples: floatData.length,
+          duration: audioBuffer.duration,
+          remainingChunks: audioQueueRef.current.length
+        });
+        
+        const source = audioContext.createBufferSource();
+        source.buffer = audioBuffer;
+        source.connect(audioContext.destination);
+        
+        // Play immediately
+        source.start();
+        
+        // Wait for this chunk to finish completely
+        await new Promise((resolve) => {
+          source.onended = resolve;
+        });
       }
-      
-      if (totalSamples === 0) {
-        isPlayingRef.current = false;
-        setIsSpeaking(false);
-        return;
-      }
-      
-      // Create a single continuous buffer
-      const continuousBuffer = new Int16Array(totalSamples);
-      let offset = 0;
-      
-      for (const chunk of audioChunks) {
-        continuousBuffer.set(chunk, offset);
-        offset += chunk.length;
-      }
-      
-      // Convert to Float32 for Web Audio API
-      const floatData = new Float32Array(continuousBuffer.length);
-      for (let i = 0; i < continuousBuffer.length; i++) {
-        floatData[i] = continuousBuffer[i] / 32768.0;
-      }
-      
-      // Create audio buffer with correct sample rate
-      const audioBuffer = audioContext.createBuffer(1, floatData.length, 16000);
-      audioBuffer.getChannelData(0).set(floatData);
-      
-      console.log('[DeepgramAgent] 🔊 Playing continuous audio stream:', {
-        duration: audioBuffer.duration,
-        samples: floatData.length,
-        sampleRate: audioBuffer.sampleRate,
-        chunks: audioChunks.length
-      });
-      
-      const source = audioContext.createBufferSource();
-      source.buffer = audioBuffer;
-      source.connect(audioContext.destination);
-      
-      // Schedule playback with proper timing
-      const currentTime = audioContext.currentTime;
-      const startTime = Math.max(currentTime, lastPlayTimeRef.current);
-      
-      source.start(startTime);
-      lastPlayTimeRef.current = startTime + audioBuffer.duration;
-      
-      // Wait for completion
-      await new Promise((resolve) => {
-        source.onended = resolve;
-      });
       
     } catch (error) {
-      console.error('[DeepgramAgent] ❌ Audio streaming error:', error);
-      setError(`Audio streaming error: ${error.message}`);
+      console.error('[DeepgramAgent] ❌ Audio playback error:', error);
+      setError(`Audio playback error: ${error.message}`);
     } finally {
       isPlayingRef.current = false;
       setIsSpeaking(false);
     }
   }, [initializeAudioContext]);
+
+
 
   // Initialize WebSocket connection to Deepgram Voice Agent
   const connect = useCallback(async () => {
@@ -200,8 +266,10 @@ export function useDeepgramAgent() {
         console.log('[DeepgramAgent] 🔌 Connected to Deepgram Voice Agent');
         setIsConnected(true);
         setIsConnecting(false);
+        lastAudioSentRef.current = Date.now();
+        startHeartbeat();
         
-        // Send Voice Agent settings optimized for streaming
+        // Send Voice Agent settings optimized for audio quality
         const settings = {
           type: "Settings",
           audio: {
@@ -211,7 +279,7 @@ export function useDeepgramAgent() {
             },
             output: {
               encoding: "linear16", 
-              sample_rate: 16000,
+              sample_rate: 16000,  // Back to 16kHz for compatibility
               container: "wav"
             }
           },
@@ -228,15 +296,24 @@ export function useDeepgramAgent() {
                 type: "open_ai",
                 model: "gpt-4o-mini"
               },
-              prompt: "You are a helpful AI assistant. Keep responses concise and natural."
+              prompt: `You are a friendly, conversational AI assistant. Follow these guidelines:
+
+1. **Natural Conversation**: Use casual, human-like language with natural pauses and conversational markers like "um", "well", "you know"
+2. **Concise Responses**: Keep responses under 2-3 sentences unless detailed explanation is needed
+3. **Context Awareness**: Remember previous parts of the conversation
+4. **Emotional Intelligence**: Show empathy and understanding
+5. **Interactive Style**: Ask follow-up questions when appropriate
+6. **Professional but Warm**: Be helpful and knowledgeable while maintaining a friendly tone
+
+Current context: You're helping with a property management dashboard. Be conversational and natural in your responses.`
             },
             speak: {
               provider: {
                 type: "deepgram",
-                model: "aura-2-asteria-en"
+                model: "aura-2-asteria-en"  // High-quality voice model
               }
             },
-            greeting: "Hello! How can I help you today?"
+            greeting: "Hi there! I'm your AI assistant. I'm here to help you with your property management dashboard. What would you like to know?"
           }
         };
         
@@ -279,6 +356,8 @@ export function useDeepgramAgent() {
             console.log('[DeepgramAgent] 💬 Conversation text:', message);
             if (message.text) {
               setTranscript(message.text);
+              // Add to conversation history
+              setConversationHistory(prev => [...prev, { role: 'user', content: message.text, timestamp: Date.now() }]);
             }
           } else if (message.type === 'UserStartedSpeaking') {
             console.log('[DeepgramAgent] 🎤 User started speaking:', message);
@@ -290,6 +369,10 @@ export function useDeepgramAgent() {
             console.log('[DeepgramAgent] 🔊 Agent started speaking:', message);
             setIsSpeaking(true);
             setIsProcessing(false);
+            // Add AI response to conversation history
+            if (message.response) {
+              setConversationHistory(prev => [...prev, { role: 'assistant', content: message.response, timestamp: Date.now() }]);
+            }
           } else if (message.type === 'AudioData') {
             // Handle TTS audio from Deepgram
             console.log('[DeepgramAgent] 🔊 Received TTS audio data');
@@ -302,10 +385,8 @@ export function useDeepgramAgent() {
           } else {
             console.log('[DeepgramAgent] 📨 Other message type:', message.type, JSON.stringify(message, null, 2));
           }
-        } catch (error) {
-          console.error('[DeepgramAgent] ❌ Failed to parse message:', error);
-          console.error('[DeepgramAgent] Raw message:', event.data);
-          setError(`Message parse error: ${error.message}`);
+        } catch (err) {
+          console.error('[DeepgramAgent] ❌ Failed to parse message:', err);
         }
       };
 
@@ -318,19 +399,19 @@ export function useDeepgramAgent() {
       ws.onclose = (event) => {
         console.log('[DeepgramAgent] 🔌 WebSocket closed:', event.code, event.reason);
         setIsConnected(false);
-        setIsConnecting(false);
         setIsListening(false);
         setIsProcessing(false);
+        setIsConnecting(false);
       };
-
-    } catch (error) {
-      console.error('[DeepgramAgent] ❌ Connection failed:', error);
-      setError(`Connection failed: ${error.message}`);
+      
+    } catch (err) {
+      console.error('[DeepgramAgent] ❌ Connection failed:', err);
+      setError(`Connection failed: ${err.message}`);
       setIsConnecting(false);
     }
   }, [handleTTSAudio]);
 
-  // Start/stop listening with proper audio processing
+  // Start/stop listening with optimized audio processing
   const toggleListening = useCallback(async () => {
     if (!isConnected) {
       await connect();
@@ -384,44 +465,77 @@ export function useDeepgramAgent() {
         processorRef.current = processor;
 
         processor.onaudioprocess = (event) => {
-          if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-            const inputData = event.inputBuffer.getChannelData(0);
-            const inputSampleRate = event.inputBuffer.sampleRate;
-            
-            // Simple resampling to 16kHz if needed
-            let resampledData = inputData;
-            if (inputSampleRate !== 16000) {
-              console.log('[DeepgramAgent] 🎤 Resampling from', inputSampleRate, 'to 16000 Hz');
-              const ratio = 16000 / inputSampleRate;
-              const newLength = Math.round(inputData.length * ratio);
-              resampledData = new Float32Array(newLength);
+          try {
+            if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+              const inputData = event.inputBuffer.getChannelData(0);
+              const inputSampleRate = event.inputBuffer.sampleRate;
               
-              for (let i = 0; i < newLength; i++) {
-                const oldIndex = i / ratio;
-                const index1 = Math.floor(oldIndex);
-                const index2 = Math.min(index1 + 1, inputData.length - 1);
-                const fraction = oldIndex - index1;
-                resampledData[i] = inputData[index1] * (1 - fraction) + inputData[index2] * fraction;
+              // VAD: Detect speech activity for local interruption handling
+              const speechDetected = detectSpeechActivity(inputData);
+              if (speechDetected) {
+                lastSpeechTimeRef.current = Date.now();
+                isUserSpeakingRef.current = true;
+                
+                // Clear any existing VAD timeout
+                if (vadTimeoutRef.current) {
+                  clearTimeout(vadTimeoutRef.current);
+                  vadTimeoutRef.current = null;
+                }
+                
+                // If AI is speaking and user starts talking, allow interruption
+                if (isSpeaking && canInterruptRef.current) {
+                  console.log('[DeepgramAgent] 🎤 User interruption detected, stopping AI speech');
+                  stopAISpeech();
+                }
               }
+              
+              // Set VAD timeout to detect end of speech (for local state management)
+              if (isUserSpeakingRef.current && !speechDetected) {
+                if (vadTimeoutRef.current) {
+                  clearTimeout(vadTimeoutRef.current);
+                }
+                vadTimeoutRef.current = setTimeout(() => {
+                  if (Date.now() - lastSpeechTimeRef.current > silenceThresholdRef.current) {
+                    console.log('[DeepgramAgent] 🎤 VAD: User stopped speaking (local detection)');
+                    isUserSpeakingRef.current = false;
+                  }
+                }, silenceThresholdRef.current);
+              }
+              
+              // Send audio directly without manual resampling - let Deepgram handle it
+              // This eliminates the aliasing artifacts from linear interpolation
+              const pcmData = new Int16Array(inputData.length);
+              for (let i = 0; i < inputData.length; i++) {
+                const sample = Math.max(-1, Math.min(1, inputData[i]));
+                pcmData[i] = sample < 0 ? sample * 0x8000 : sample * 0x7FFF;
+              }
+              
+              // Only log occasionally to avoid console spam
+              if (Math.random() < 0.01) { // Log 1% of the time
+                console.log('[DeepgramAgent] 🎤 Sending audio chunk:', {
+                  originalSamples: inputData.length,
+                  pcmSamples: pcmData.length,
+                  bytes: pcmData.buffer.byteLength,
+                  originalSampleRate: inputSampleRate,
+                  channels: event.inputBuffer.numberOfChannels,
+                  speechDetected,
+                  isUserSpeaking: isUserSpeakingRef.current,
+                  wsReadyState: wsRef.current.readyState
+                });
+              }
+              
+              // Send audio data to Deepgram
+              wsRef.current.send(pcmData.buffer);
+              lastAudioSentRef.current = Date.now();
+            } else {
+              console.warn('[DeepgramAgent] ⚠️ WebSocket not ready, skipping audio send:', {
+                wsExists: !!wsRef.current,
+                wsReadyState: wsRef.current?.readyState
+              });
             }
-            
-            // Simple conversion to 16-bit PCM
-            const pcmData = new Int16Array(resampledData.length);
-            for (let i = 0; i < resampledData.length; i++) {
-              const sample = Math.max(-1, Math.min(1, resampledData[i]));
-              pcmData[i] = sample < 0 ? sample * 0x8000 : sample * 0x7FFF;
-            }
-            
-            console.log('[DeepgramAgent] 🎤 Sending audio chunk:', {
-              originalSamples: inputData.length,
-              resampledSamples: pcmData.length,
-              bytes: pcmData.buffer.byteLength,
-              originalSampleRate: inputSampleRate,
-              targetSampleRate: 16000,
-              channels: event.inputBuffer.numberOfChannels
-            });
-            
-            wsRef.current.send(pcmData.buffer);
+          } catch (error) {
+            console.error('[DeepgramAgent] ❌ Audio processing error:', error);
+            // Don't set error state here as it might be temporary
           }
         };
 
@@ -440,21 +554,33 @@ export function useDeepgramAgent() {
         setError(`Microphone error: ${error instanceof Error ? error.message : 'Unknown error'}`);
       }
     }
-  }, [isConnected, isListening, connect, initializeAudioContext]);
+  }, [isConnected, isListening, isSpeaking, connect, initializeAudioContext, detectSpeechActivity, stopAISpeech]);
 
   // Clear conversation
   const clearConversation = useCallback(() => {
     setTranscript('');
     setResponse('');
     setError('');
+    setConversationHistory([]);
     // Clear audio buffers
     audioQueueRef.current = [];
     lastPlayTimeRef.current = 0;
+    
+    // Clear VAD timeouts
+    if (vadTimeoutRef.current) {
+      clearTimeout(vadTimeoutRef.current);
+      vadTimeoutRef.current = null;
+    }
+    isUserSpeakingRef.current = false;
+    
+    // Clear audio state
+    playCursorRef.current = 0;
   }, []);
 
   // Cleanup on unmount
   useEffect(() => {
     return () => {
+      stopHeartbeat();
       if (wsRef.current) {
         wsRef.current.close();
       }
@@ -470,8 +596,15 @@ export function useDeepgramAgent() {
       // Clear audio buffers
       audioQueueRef.current = [];
       lastPlayTimeRef.current = 0;
+      playCursorRef.current = 0;
+      
+      // Stop any current playback
+      if (isPlayingRef.current) {
+        isPlayingRef.current = false;
+        setIsSpeaking(false);
+      }
     };
-  }, []);
+  }, [stopHeartbeat]);
 
   return {
     isConnected,
@@ -482,6 +615,7 @@ export function useDeepgramAgent() {
     transcript,
     response,
     error,
+    conversationHistory,
     startListening: () => toggleListening(),
     stopListening: () => toggleListening(),
     connect,

@@ -153,19 +153,32 @@ function SpeakingIndicator({ active }) {
 }
 
 export default function AIBubble() {
+  const [isMounted, setIsMounted] = React.useState(false);
+
+  React.useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
+  // Don't render anything until client-side
+  if (!isMounted) {
+    return null;
+  }
+
   const {
     isConnected,
     isListening,
     isProcessing,
+    isSpeaking,
     error,
     transcript,
     response,
     startListening,
     stopListening,
-    connect
+    connect,
+    clearConversation
   } = useDeepgramAgent();
 
-  const isActive = isListening || isProcessing;
+  const isActive = isListening || isProcessing || isSpeaking;
 
   return (
     <div className="fixed top-8 right-8 z-50">
@@ -205,13 +218,13 @@ export default function AIBubble() {
         <ProcessingSpinner active={isProcessing} />
         
         {/* Speaking indicator */}
-        <SpeakingIndicator active={isProcessing} />
+        <SpeakingIndicator active={isSpeaking} />
         
         {/* Connecting indicator */}
         <ProcessingSpinner active={!isConnected} />
         
         {/* Icon - only show when not in other states */}
-        {!isListening && !isProcessing && isConnected && (
+        {!isListening && !isProcessing && !isSpeaking && isConnected && (
           <motion.div
             animate={{ scale: [1, 1.05, 1] }}
             transition={{ 
@@ -273,7 +286,7 @@ export default function AIBubble() {
                   Thinking...
                 </>
               )}
-              {isProcessing && (
+              {isSpeaking && (
                 <>
                   <motion.div
                     className="w-2 h-2 bg-white rounded-full"
@@ -287,7 +300,7 @@ export default function AIBubble() {
                       ease: "easeInOut"
                     }}
                   />
-                  Processing...
+                  Speaking...
                 </>
               )}
             </div>
