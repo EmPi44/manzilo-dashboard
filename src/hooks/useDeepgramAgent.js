@@ -3,43 +3,9 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 
 /**
- * Deepgram Voice Agent message types based on official documentation
- * @typedef {Object} DeepgramMessage
- * @property {string} type - Message type
+ * Deepgram Voice Agent hook with improved audio handling
+ * Fixes robot voice issues and provides better error handling
  */
-
-/**
- * Deepgram Voice Agent Settings message
- * @typedef {Object} DeepgramSettings
- * @property {'Settings'} type - Message type
- * @property {Object} agent - Agent configuration
- * @property {Object} agent.listen - Listen provider configuration
- * @property {Object} agent.think - Think provider configuration
- * @property {Object} agent.speak - Speak provider configuration
- */
-
-/**
- * Deepgram Voice Agent Results message
- * @typedef {Object} DeepgramResults
- * @property {'Results'} type - Message type
- * @property {boolean} is_final - Whether this is the final result
- * @property {Object} channel - Channel data
- * @property {Array<{transcript: string, confidence: number}>} channel.alternatives - Transcript alternatives
- */
-
-/**
- * Deepgram Voice Agent Error message
- * @typedef {Object} DeepgramError
- * @property {'Error'} type - Message type
- * @property {string} error - Error message
- */
-
-/**
- * Deepgram Voice Agent Ready message
- * @typedef {Object} DeepgramAgentReady
- * @property {'AgentReady'} type - Message type
- */
-
 export function useDeepgramAgent() {
   const [isConnected, setIsConnected] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
@@ -54,6 +20,127 @@ export function useDeepgramAgent() {
   const streamRef = useRef(null);
   const audioContextRef = useRef(null);
   const processorRef = useRef(null);
+  const audioQueueRef = useRef([]);
+  const isPlayingRef = useRef(false);
+
+  // Initialize persistent audio context
+  const initializeAudioContext = useCallback(() => {
+    if (!audioContextRef.current) {
+      console.log('[DeepgramAgent] 🔊 Initializing persistent audio context...');
+      audioContextRef.current = new (window.AudioContext || window.webkitAudioContext)();
+      
+      // Resume audio context if suspended (required for Chrome)
+      if (audioContextRef.current.state === 'suspended') {
+        audioContextRef.current.resume();
+      }
+      
+      console.log('[DeepgramAgent] 🔊 Audio context initialized:', {
+        sampleRate: audioContextRef.current.sampleRate,
+        state: audioContextRef.current.state
+      });
+    }
+    return audioContextRef.current;
+  }, []);
+
+  // Improved TTS audio handler with proper queue management
+  const handleTTSAudio = useCallback(async (audioData) => {
+    if (!audioData) {
+      console.log('[DeepgramAgent] 🔊 No audio data received');
+      return;
+    }
+
+    console.log('[DeepgramAgent] 🔊 Processing TTS audio:', {
+      type: typeof audioData,
+      isArrayBuffer: audioData instanceof ArrayBuffer,
+      isBase64: typeof audioData === 'string',
+      size: audioData instanceof ArrayBuffer ? audioData.byteLength : audioData.length
+    });
+
+    try {
+      let pcmData;
+      
+      if (audioData instanceof ArrayBuffer) {
+        // Direct ArrayBuffer from WebSocket binary message
+        pcmData = new Int16Array(audioData);
+        console.log('[DeepgramAgent] 🔊 Using ArrayBuffer directly, PCM samples:', pcmData.length);
+      } else if (typeof audioData === 'string') {
+        // Base64 string from JSON message
+        console.log('[DeepgramAgent] 🔊 Converting base64 to PCM data');
+        const binaryString = atob(audioData);
+        const bytes = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) {
+          bytes[i] = binaryString.charCodeAt(i);
+        }
+        pcmData = new Int16Array(bytes.buffer);
+        console.log('[DeepgramAgent] 🔊 Converted base64 to PCM data, samples:', pcmData.length);
+      } else {
+        throw new Error(`Unsupported audio data type: ${typeof audioData}`);
+      }
+
+      // Add to audio queue
+      audioQueueRef.current.push(pcmData);
+      
+      // Start playing if not already playing
+      if (!isPlayingRef.current) {
+        playAudioQueue();
+      }
+      
+    } catch (error) {
+      console.error('[DeepgramAgent] ❌ TTS audio processing error:', error);
+      setError(`Audio processing error: ${error.message}`);
+    }
+  }, []);
+
+  // Play audio queue sequentially to prevent overlapping
+  const playAudioQueue = useCallback(async () => {
+    if (isPlayingRef.current || audioQueueRef.current.length === 0) {
+      return;
+    }
+
+    isPlayingRef.current = true;
+    setIsSpeaking(true);
+
+    try {
+      const audioContext = initializeAudioContext();
+      
+      while (audioQueueRef.current.length > 0) {
+        const pcmData = audioQueueRef.current.shift();
+        
+        // Convert Int16 PCM to Float32 for Web Audio API
+        const floatData = new Float32Array(pcmData.length);
+        for (let i = 0; i < pcmData.length; i++) {
+          floatData[i] = pcmData[i] / 32768.0;
+        }
+        
+        // Create audio buffer with correct sample rate (16kHz for Deepgram output)
+        const audioBuffer = audioContext.createBuffer(1, floatData.length, 16000);
+        audioBuffer.getChannelData(0).set(floatData);
+        
+        console.log('[DeepgramAgent] 🔊 Playing audio chunk:', {
+          duration: audioBuffer.duration,
+          samples: floatData.length,
+          sampleRate: audioBuffer.sampleRate
+        });
+        
+        const source = audioContext.createBufferSource();
+        source.buffer = audioBuffer;
+        source.connect(audioContext.destination);
+        
+        // Wait for this chunk to finish before playing the next
+        await new Promise((resolve) => {
+          source.onended = resolve;
+          source.start(0);
+        });
+      }
+      
+    } catch (error) {
+      console.error('[DeepgramAgent] ❌ Audio playback error:', error);
+      setError(`Audio playback error: ${error.message}`);
+    } finally {
+      isPlayingRef.current = false;
+      setIsSpeaking(false);
+    }
+  }, [initializeAudioContext]);
 
   // Initialize WebSocket connection to Deepgram Voice Agent
   const connect = useCallback(async () => {
@@ -76,7 +163,6 @@ export function useDeepgramAgent() {
       // Use the Deepgram Voice Agent endpoint
       const wsUrl = 'wss://agent.deepgram.com/v1/agent/converse';
       console.log('[DeepgramAgent] 🔌 Connecting to Voice Agent:', wsUrl);
-      console.log('[DeepgramAgent] 🔌 Using subprotocols:', ['token', token ? '***' : 'null']);
       
       const ws = new WebSocket(wsUrl, ['token', token]);
       wsRef.current = ws;
@@ -86,17 +172,17 @@ export function useDeepgramAgent() {
         setIsConnected(true);
         setIsConnecting(false);
         
-        // Send Voice Agent settings based on official documentation
+        // Send Voice Agent settings with consistent audio format
         const settings = {
           type: "Settings",
           audio: {
             input: {
               encoding: "linear16",
-              sample_rate: 24000
+              sample_rate: 16000  // Use 16kHz for both input and output
             },
             output: {
               encoding: "linear16", 
-              sample_rate: 24000,
+              sample_rate: 16000,  // Consistent 16kHz
               container: "wav"
             }
           },
@@ -113,19 +199,19 @@ export function useDeepgramAgent() {
                 type: "open_ai",
                 model: "gpt-4o-mini"
               },
-              prompt: "You are a friendly AI assistant."
+              prompt: "You are a helpful AI assistant. Keep responses concise and friendly."
             },
             speak: {
               provider: {
                 type: "deepgram",
-                model: "aura-2-thalia-en"
+                model: "aura-2-thalia-en"  // High-quality voice model
               }
             },
             greeting: "Hello! How can I help you today?"
           }
         };
         
-        console.log('[DeepgramAgent] 📤 Sending Voice Agent settings:', JSON.stringify(settings, null, 2));
+        console.log('[DeepgramAgent] 📤 Sending settings:', JSON.stringify(settings, null, 2));
         ws.send(JSON.stringify(settings));
       };
 
@@ -181,14 +267,6 @@ export function useDeepgramAgent() {
             handleTTSAudio(message.data);
           } else if (message.type === 'Error') {
             console.error('[DeepgramAgent] ❌ Deepgram error message:', message);
-            console.error('[DeepgramAgent] ❌ Error details:', {
-              type: message.type,
-              error: message.error,
-              message: message.message,
-              details: message.details,
-              code: message.code,
-              fullMessage: JSON.stringify(message, null, 2)
-            });
             const errorMessage = message.error || message.message || message.details || JSON.stringify(message);
             setError(`Deepgram error: ${errorMessage}`);
             setIsProcessing(false);
@@ -204,120 +282,24 @@ export function useDeepgramAgent() {
 
       ws.onerror = (error) => {
         console.error('[DeepgramAgent] ❌ WebSocket error:', error);
-        console.error('[DeepgramAgent] ❌ WebSocket error details:', {
-          type: error.type,
-          message: error.message,
-          target: error.target,
-          readyState: ws.readyState,
-          url: ws.url,
-          protocol: ws.protocol
-        });
-        const errorMessage = error instanceof Error ? error.message : 'WebSocket connection failed';
-        setError(`WebSocket error: ${errorMessage}`);
+        setError(`WebSocket error: ${JSON.stringify(error)}`);
         setIsConnecting(false);
       };
 
       ws.onclose = (event) => {
-        console.log('[DeepgramAgent] 🔌 Connection closed:', {
-          code: event.code,
-          reason: event.reason,
-          wasClean: event.wasClean
-        });
-        
-        if (!event.wasClean) {
-          const closeReason = event.reason || 'Unknown reason';
-          const closeCode = event.code;
-          console.error('[DeepgramAgent] ❌ Connection closed abnormally:', { code: closeCode, reason: closeReason });
-          setError(`Connection closed: ${closeCode} - ${closeReason}`);
-        }
-        
+        console.log('[DeepgramAgent] 🔌 WebSocket closed:', event.code, event.reason);
         setIsConnected(false);
         setIsConnecting(false);
         setIsListening(false);
         setIsProcessing(false);
-        setIsSpeaking(false);
       };
 
     } catch (error) {
       console.error('[DeepgramAgent] ❌ Connection failed:', error);
-      setError(`Connection failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      setError(`Connection failed: ${error.message}`);
       setIsConnecting(false);
     }
-  }, [isConnected, isConnecting]);
-
-  // Handle TTS audio from Deepgram
-  const handleTTSAudio = useCallback((audioData) => {
-    if (!audioData) {
-      console.log('[DeepgramAgent] 🔊 No audio data received');
-      return;
-    }
-
-    console.log('[DeepgramAgent] 🔊 Processing TTS audio:', {
-      type: typeof audioData,
-      isArrayBuffer: audioData instanceof ArrayBuffer,
-      isBase64: typeof audioData === 'string',
-      size: audioData instanceof ArrayBuffer ? audioData.byteLength : audioData.length
-    });
-
-    setIsSpeaking(true);
-    
-    try {
-      let pcmData;
-      
-      if (audioData instanceof ArrayBuffer) {
-        // Direct ArrayBuffer from WebSocket binary message (raw PCM)
-        pcmData = new Int16Array(audioData);
-        console.log('[DeepgramAgent] 🔊 Using ArrayBuffer directly, PCM samples:', pcmData.length);
-      } else if (typeof audioData === 'string') {
-        // Base64 string from JSON message
-        console.log('[DeepgramAgent] 🔊 Converting base64 to PCM data');
-        const binaryString = atob(audioData);
-        const bytes = new Uint8Array(binaryString.length);
-        for (let i = 0; i < binaryString.length; i++) {
-          bytes[i] = binaryString.charCodeAt(i);
-        }
-        pcmData = new Int16Array(bytes.buffer);
-        console.log('[DeepgramAgent] 🔊 Converted base64 to PCM data, samples:', pcmData.length);
-      } else {
-        throw new Error(`Unsupported audio data type: ${typeof audioData}`);
-      }
-      
-      // Create audio context and play the raw PCM audio
-      const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-      console.log('[DeepgramAgent] 🔊 Created audio context, sample rate:', audioContext.sampleRate);
-      
-      // Convert Int16 PCM to Float32 for Web Audio API
-      const floatData = new Float32Array(pcmData.length);
-      for (let i = 0; i < pcmData.length; i++) {
-        floatData[i] = pcmData[i] / 32768.0; // Convert from Int16 to Float32
-      }
-      
-      // Create audio buffer from PCM data
-      const audioBuffer = audioContext.createBuffer(1, floatData.length, 24000); // Deepgram uses 24kHz
-      audioBuffer.getChannelData(0).set(floatData);
-      
-      console.log('[DeepgramAgent] 🔊 Audio buffer created:', {
-        duration: audioBuffer.duration,
-        numberOfChannels: audioBuffer.numberOfChannels,
-        sampleRate: audioBuffer.sampleRate,
-        length: audioBuffer.length
-      });
-      
-      const source = audioContext.createBufferSource();
-      source.buffer = audioBuffer;
-      source.connect(audioContext.destination);
-      source.start(0);
-      
-      source.onended = () => {
-        console.log('[DeepgramAgent] 🔊 Audio playback finished');
-        setIsSpeaking(false);
-      };
-      
-    } catch (error) {
-      console.error('[DeepgramAgent] ❌ TTS audio error:', error);
-      setIsSpeaking(false);
-    }
-  }, []);
+  }, [handleTTSAudio]);
 
   // Start/stop listening with proper audio handling
   const toggleListening = useCallback(async () => {
@@ -336,10 +318,6 @@ export function useDeepgramAgent() {
         processorRef.current.disconnect();
         processorRef.current = null;
       }
-      if (audioContextRef.current) {
-        await audioContextRef.current.close();
-        audioContextRef.current = null;
-      }
       setIsListening(false);
       console.log('[DeepgramAgent] 🛑 Stopped listening');
     } else {
@@ -348,10 +326,11 @@ export function useDeepgramAgent() {
         console.log('[DeepgramAgent] 🎤 Requesting microphone access...');
         const stream = await navigator.mediaDevices.getUserMedia({ 
           audio: {
-            sampleRate: 16000,
+            sampleRate: 16000,  // Use 16kHz to match Deepgram settings
             channelCount: 1,
             echoCancellation: true,
-            noiseSuppression: true
+            noiseSuppression: true,
+            autoGainControl: true
           }
         });
         
@@ -364,21 +343,12 @@ export function useDeepgramAgent() {
         
         // Create audio context and processor for real-time audio
         console.log('[DeepgramAgent] 🎤 Creating audio context...');
-        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-        audioContextRef.current = audioContext;
+        const audioContext = initializeAudioContext();
         
         console.log('[DeepgramAgent] 🎤 Audio context created:', {
           sampleRate: audioContext.sampleRate,
           state: audioContext.state
         });
-        
-        // Check if we need to resample
-        const streamSampleRate = stream.getAudioTracks()[0]?.getSettings()?.sampleRate || 48000;
-        console.log('[DeepgramAgent] 🎤 Stream sample rate:', streamSampleRate, 'AudioContext sample rate:', audioContext.sampleRate);
-        
-        if (streamSampleRate !== audioContext.sampleRate) {
-          console.log('[DeepgramAgent] 🎤 Sample rates don\'t match, will resample audio');
-        }
         
         const source = audioContext.createMediaStreamSource(stream);
         const processor = audioContext.createScriptProcessor(4096, 1, 1);
@@ -389,7 +359,7 @@ export function useDeepgramAgent() {
             const inputData = event.inputBuffer.getChannelData(0);
             const inputSampleRate = event.inputBuffer.sampleRate;
             
-            // Resample to 16kHz if needed (Deepgram expects 16kHz)
+            // Resample to 16kHz if needed
             let resampledData = inputData;
             if (inputSampleRate !== 16000) {
               console.log('[DeepgramAgent] 🎤 Resampling from', inputSampleRate, 'to 16000 Hz');
@@ -440,13 +410,15 @@ export function useDeepgramAgent() {
         setError(`Microphone error: ${error instanceof Error ? error.message : 'Unknown error'}`);
       }
     }
-  }, [isConnected, isListening, connect]);
+  }, [isConnected, isListening, connect, initializeAudioContext]);
 
   // Clear conversation
   const clearConversation = useCallback(() => {
     setTranscript('');
     setResponse('');
     setError('');
+    // Clear audio queue
+    audioQueueRef.current = [];
   }, []);
 
   // Cleanup on unmount
@@ -464,6 +436,8 @@ export function useDeepgramAgent() {
       if (audioContextRef.current) {
         audioContextRef.current.close();
       }
+      // Clear audio queue
+      audioQueueRef.current = [];
     };
   }, []);
 
@@ -476,7 +450,9 @@ export function useDeepgramAgent() {
     transcript,
     response,
     error,
-    toggleListening,
+    startListening: () => toggleListening(),
+    stopListening: () => toggleListening(),
+    connect,
     clearConversation
   };
 } 

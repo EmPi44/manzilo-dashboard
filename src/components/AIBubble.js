@@ -155,18 +155,17 @@ function SpeakingIndicator({ active }) {
 export default function AIBubble() {
   const {
     isConnected,
-    isConnecting,
     isListening,
     isProcessing,
-    isSpeaking,
+    error,
     transcript,
     response,
-    error,
-    toggleListening,
-    clearConversation
+    startListening,
+    stopListening,
+    connect
   } = useDeepgramAgent();
 
-  const isActive = isListening || isProcessing || isSpeaking;
+  const isActive = isListening || isProcessing;
 
   return (
     <div className="fixed top-8 right-8 z-50">
@@ -188,12 +187,12 @@ export default function AIBubble() {
         }}
         className={`relative w-16 h-16 rounded-full flex items-center justify-center cursor-pointer border-2 border-white/20 ${
           error ? 'bg-gradient-to-br from-red-400 to-red-600' :
-          isConnecting ? 'bg-gradient-to-br from-yellow-400 to-yellow-600' :
+          !isConnected ? 'bg-gradient-to-br from-yellow-400 to-yellow-600' :
           isActive ? 'bg-gradient-to-br from-blue-400 to-blue-600' :
           'bg-gradient-to-br from-green-400 to-green-600'
         }`}
         aria-label={isActive ? "AI Voice Agent active" : "Activate AI Voice Agent"}
-        onClick={toggleListening}
+        onClick={isListening ? stopListening : startListening}
         style={{ outline: "none" }}
       >
         {/* Pulse circles */}
@@ -206,13 +205,13 @@ export default function AIBubble() {
         <ProcessingSpinner active={isProcessing} />
         
         {/* Speaking indicator */}
-        <SpeakingIndicator active={isSpeaking} />
+        <SpeakingIndicator active={isProcessing} />
         
         {/* Connecting indicator */}
-        <ProcessingSpinner active={isConnecting} />
+        <ProcessingSpinner active={!isConnected} />
         
         {/* Icon - only show when not in other states */}
-        {!isListening && !isProcessing && !isSpeaking && !isConnecting && (
+        {!isListening && !isProcessing && isConnected && (
           <motion.div
             animate={{ scale: [1, 1.05, 1] }}
             transition={{ 
@@ -274,7 +273,7 @@ export default function AIBubble() {
                   Thinking...
                 </>
               )}
-              {isSpeaking && (
+              {isProcessing && (
                 <>
                   <motion.div
                     className="w-2 h-2 bg-white rounded-full"
@@ -288,7 +287,7 @@ export default function AIBubble() {
                       ease: "easeInOut"
                     }}
                   />
-                  Speaking...
+                  Processing...
                 </>
               )}
             </div>
